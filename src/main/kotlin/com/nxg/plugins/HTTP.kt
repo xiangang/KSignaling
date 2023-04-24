@@ -19,7 +19,7 @@ fun Application.configureHTTP() {
         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
     }
     routing {
-        swaggerUI(path = "openapi")
+        //swaggerUI(path = "openapi")
     }
     install(DefaultHeaders) {
         header("X-Engine", "Ktor") // will send this header with each response
