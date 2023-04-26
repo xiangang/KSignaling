@@ -1,41 +1,27 @@
 package com.nxg.plugins
 
-import io.ktor.server.auth.*
-import io.ktor.server.auth.jwt.*
-import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
 import com.nxg.jwt.JwtConfig
 import com.nxg.repository.UserRepository
-import io.ktor.server.response.*
-import io.ktor.server.sessions.*
+import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.routing.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
+import io.ktor.server.response.*
 import java.util.*
 
 fun Application.configureSecurity() {
 
     authentication {
-       /* jwt {
-            val jwtAudience = this@configureSecurity.environment.config.property("jwt.audience").getString()
-            realm = this@configureSecurity.environment.config.property("jwt.realm").getString()
-            verifier(
-                JWT
-                    .require(Algorithm.HMAC256("secret"))
-                    .withAudience(jwtAudience)
-                    .withIssuer(this@configureSecurity.environment.config.property("jwt.domain").getString())
-                    .build()
-            )
-            validate { credential ->
-                if (credential.payload.audience.contains(jwtAudience)) JWTPrincipal(credential.payload) else null
-            }
-        }*/
         jwt {
             verifier(JwtConfig.verifier)
-            realm = "ktor.io"
-            validate {
-                val id = it.payload.subject
+            realm = JwtConfig.realm
+            validate { jwtCredential ->
+                val id = jwtCredential.payload.subject
                 val user = UserRepository.findById(UUID.fromString(id))
                 user?.let { UserPrincipal(it) }
+            }
+            challenge { _, _ ->
+                call.respond(HttpStatusCode.Unauthorized, "Token is not valid or has expired")
             }
         }
     }
