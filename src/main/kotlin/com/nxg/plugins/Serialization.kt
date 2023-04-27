@@ -11,11 +11,8 @@ import io.ktor.server.routing.*
 
 fun Application.configureSerialization() {
     install(ContentNegotiation) {
-        json()
         gson {
-        }
-        jackson {
-            enable(SerializationFeature.INDENT_OUTPUT)
+            setPrettyPrinting()
         }
     }
     routing {

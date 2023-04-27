@@ -15,7 +15,6 @@ fun main() {
 }
 
 fun Application.module() {
-    configureDatabase()
     configureSecurity()
     configureHTTP()
     configureMonitoring()
