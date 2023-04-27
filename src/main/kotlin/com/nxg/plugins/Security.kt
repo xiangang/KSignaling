@@ -17,11 +17,18 @@ fun Application.configureSecurity() {
             realm = JwtConfig.realm
             validate { jwtCredential ->
                 val id = jwtCredential.payload.subject
-                val user = UserRepository.findById(UUID.fromString(id))
+                val user = UserRepository.findById(id.toLong())
                 user?.let { UserPrincipal(it) }
             }
             challenge { _, _ ->
-                call.respond(HttpStatusCode.Unauthorized, "Token is not valid or has expired")
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    mapOf(
+                        "code" to HttpStatusCode.Unauthorized.value,
+                        "message" to "Token is not valid or has expired",
+                        "data" to null
+                    )
+                )
             }
         }
     }

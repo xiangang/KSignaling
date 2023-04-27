@@ -3,6 +3,7 @@ package com.nxg.plugins
 import com.nxg.data.entity.User
 import com.nxg.jwt.JwtConfig
 import com.nxg.repository.UserRepository
+import com.nxg.utils.PasswordUtils
 import com.nxg.utils.PasswordUtils.hashPassword
 import com.nxg.utils.PasswordUtils.verifyPassword
 import io.ktor.http.*
@@ -15,6 +16,7 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
+import org.joda.time.LocalDateTime
 import java.util.*
 
 fun Application.configureHTTP() {
@@ -48,22 +50,52 @@ fun Application.configureHTTP() {
             val request = call.receive<RegisterRequest>()
             val user = UserRepository.findByUsername(request.username)
             if (user != null) {
-                call.respond(HttpStatusCode.BadRequest, "Username already exists")
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf(
+                        "code" to HttpStatusCode.BadRequest.value,
+                        "message" to "Username already exists",
+                        "data" to null
+                    )
+                )
             } else {
-                val passwordHash = hashPassword(request.password)
-                val newUser = User(UUID.randomUUID(), request.username, passwordHash)
+                val salt: String = PasswordUtils.generateSalt(16)
+                val passwordHash = hashPassword(request.password, salt)
+                val now = LocalDateTime.now()
+                val newUser = User(0, request.username, passwordHash, salt, createTime = now, updateTime = now)
                 UserRepository.save(newUser)
-                call.respond(HttpStatusCode.Created, newUser)
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to newUser
+                    )
+                )
             }
         }
         post("/login") {
             val request = call.receive<LoginRequest>()
             val user = UserRepository.findByUsername(request.username)
-            if (user == null || !verifyPassword(request.password, user.passwordHash)) {
-                call.respond(HttpStatusCode.Unauthorized, "Invalid username or password")
+            if (user == null || !verifyPassword(request.password, user.salt, user.password)) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    mapOf(
+                        "code" to HttpStatusCode.Unauthorized.value,
+                        "message" to "Invalid username or password",
+                        "data" to null
+                    )
+                )
             } else {
                 val token = JwtConfig.generateToken(user)
-                call.respond(mapOf("token" to token))
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to mapOf("token" to token)
+                    )
+                )
             }
         }
         //认证后才能访问的接口定义使用authenticate定义
