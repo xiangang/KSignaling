@@ -2,7 +2,7 @@ package com.nxg.repository
 
 import com.nxg.data.db.KSignalingDatabase.database
 import com.nxg.data.entity.User
-import com.nxg.data.entity.UsersTable
+import com.nxg.data.entity.UserTable
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
@@ -12,7 +12,7 @@ object UserRepository {
 
     fun findById(id: Long): User? {
         return transaction(database) {
-            UsersTable.select { UsersTable.id eq id }
+            UserTable.select { UserTable.id eq id }
                 .mapNotNull { toUser(it) }
                 .singleOrNull()
         }
@@ -20,7 +20,7 @@ object UserRepository {
 
     fun findByUUId(uuid: Long): User? {
         return transaction(database) {
-            UsersTable.select { UsersTable.uuid eq uuid }
+            UserTable.select { UserTable.uuid eq uuid }
                 .mapNotNull { toUser(it) }
                 .singleOrNull()
         }
@@ -28,7 +28,7 @@ object UserRepository {
 
     fun findByUsername(username: String): User? {
         return transaction(database) {
-            UsersTable.select { UsersTable.username eq username }
+            UserTable.select { UserTable.username eq username }
                 .mapNotNull { toUser(it) }
                 .singleOrNull()
         }
@@ -36,7 +36,7 @@ object UserRepository {
 
     fun save(user: User) {
         transaction(database) {
-            UsersTable.insert {
+            UserTable.insert {
                 it[id] = user.id
                 it[uuid] = user.uuid
                 it[username] = user.username
@@ -62,24 +62,24 @@ object UserRepository {
 
     private fun toUser(row: ResultRow): User {
         return User(
-            id = row[UsersTable.id].value,
-            uuid = row[UsersTable.uuid],
-            username = row[UsersTable.username],
-            password = row[UsersTable.password],
-            salt = row[UsersTable.salt],
-            email = row[UsersTable.email],
-            phone = row[UsersTable.phone],
-            nickname = row[UsersTable.nickname],
-            avatar = row[UsersTable.avatar],
-            gender = row[UsersTable.gender],
-            birthday = row[UsersTable.birthday]?.toLocalDate(),
-            country = row[UsersTable.country],
-            province = row[UsersTable.province],
-            city = row[UsersTable.city],
-            address = row[UsersTable.address],
-            status = row[UsersTable.status].toInt(),
-            createTime = row[UsersTable.create_time].toLocalDateTime(),
-            updateTime = row[UsersTable.update_time].toLocalDateTime(),
+            id = row[UserTable.id].value,
+            uuid = row[UserTable.uuid],
+            username = row[UserTable.username],
+            password = row[UserTable.password],
+            salt = row[UserTable.salt],
+            email = row[UserTable.email],
+            phone = row[UserTable.phone],
+            nickname = row[UserTable.nickname],
+            avatar = row[UserTable.avatar],
+            gender = row[UserTable.gender],
+            birthday = row[UserTable.birthday]?.toLocalDate(),
+            country = row[UserTable.country],
+            province = row[UserTable.province],
+            city = row[UserTable.city],
+            address = row[UserTable.address],
+            status = row[UserTable.status].toInt(),
+            createTime = row[UserTable.create_time].toLocalDateTime(),
+            updateTime = row[UserTable.update_time].toLocalDateTime(),
         )
     }
 }

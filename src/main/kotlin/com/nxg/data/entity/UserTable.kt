@@ -4,7 +4,7 @@ import org.jetbrains.exposed.dao.id.LongIdTable
 import org.jetbrains.exposed.sql.jodatime.date
 import org.jetbrains.exposed.sql.jodatime.datetime
 
-object UsersTable : LongIdTable(name = "user") {
+object UserTable : LongIdTable(name = "user") {
     val uuid = long("uuid").uniqueIndex()
     val username = varchar("username", 50).uniqueIndex()
     val password = varchar("password", 128)
