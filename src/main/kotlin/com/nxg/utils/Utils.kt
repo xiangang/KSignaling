@@ -1,8 +1,14 @@
 package com.nxg.utils
 
+import com.typesafe.config.ConfigFactory
+import io.ktor.server.config.*
 import org.mindrot.jbcrypt.BCrypt
 import java.security.SecureRandom
 import java.util.*
+
+object HoconUtils {
+    val config = HoconApplicationConfig(ConfigFactory.load())
+}
 
 object PasswordUtils {
 
@@ -17,7 +23,15 @@ object PasswordUtils {
         return BCrypt.hashpw(password + salt, BCrypt.gensalt())
     }
 
-    fun verifyPassword(password: String, salt: String,hash: String,): Boolean {
+    fun verifyPassword(password: String, salt: String, hash: String): Boolean {
         return BCrypt.checkpw(password + salt, hash)
     }
+}
+
+object SnowflakeUtils {
+    private val workId = HoconUtils.config.property("ktor.workId").getString().toLong()
+    val snowflake by lazy {
+        Snowflake(workId)
+    }
+
 }

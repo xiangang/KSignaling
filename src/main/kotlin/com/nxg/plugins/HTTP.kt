@@ -6,6 +6,7 @@ import com.nxg.repository.UserRepository
 import com.nxg.utils.PasswordUtils
 import com.nxg.utils.PasswordUtils.hashPassword
 import com.nxg.utils.PasswordUtils.verifyPassword
+import com.nxg.utils.SnowflakeUtils
 import io.ktor.http.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.swagger.*
@@ -62,7 +63,15 @@ fun Application.configureHTTP() {
                 val salt: String = PasswordUtils.generateSalt(16)
                 val passwordHash = hashPassword(request.password, salt)
                 val now = LocalDateTime.now()
-                val newUser = User(0, request.username, passwordHash, salt, createTime = now, updateTime = now)
+                val newUser = User(
+                    0,
+                    SnowflakeUtils.snowflake.nextId(),
+                    request.username,
+                    passwordHash,
+                    salt,
+                    createTime = now,
+                    updateTime = now
+                )
                 UserRepository.save(newUser)
                 call.respond(
                     HttpStatusCode.OK,

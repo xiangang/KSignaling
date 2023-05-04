@@ -4,12 +4,13 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier
 import com.auth0.jwt.algorithms.Algorithm
 import com.nxg.data.entity.User
+import com.nxg.utils.HoconUtils
 import com.typesafe.config.ConfigFactory
 import io.ktor.server.config.*
 import java.util.*
 
 object JwtConfig {
-    private val config = HoconApplicationConfig(ConfigFactory.load())
+    private val config = HoconUtils.config
     private val secret = config.property("ktor.jwt.secret").getString()
     private val issuer = config.property("ktor.jwt.issuer").getString()
     private val audience = config.property("ktor.jwt.audience").getString()

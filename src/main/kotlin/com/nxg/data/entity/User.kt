@@ -5,6 +5,7 @@ import org.joda.time.LocalDateTime
 
 data class User(
     val id: Long,
+    val uuid: Long,
     val username: String,
     val password: String,
     val salt: String,
