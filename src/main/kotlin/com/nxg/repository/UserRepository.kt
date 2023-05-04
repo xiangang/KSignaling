@@ -18,6 +18,14 @@ object UserRepository {
         }
     }
 
+    fun findByUUId(uuid: Long): User? {
+        return transaction(database) {
+            UsersTable.select { UsersTable.uuid eq uuid }
+                .mapNotNull { toUser(it) }
+                .singleOrNull()
+        }
+    }
+
     fun findByUsername(username: String): User? {
         return transaction(database) {
             UsersTable.select { UsersTable.username eq username }
@@ -30,6 +38,7 @@ object UserRepository {
         transaction(database) {
             UsersTable.insert {
                 it[id] = user.id
+                it[uuid] = user.uuid
                 it[username] = user.username
                 it[password] = user.password
                 it[salt] = user.salt
@@ -54,6 +63,7 @@ object UserRepository {
     private fun toUser(row: ResultRow): User {
         return User(
             id = row[UsersTable.id].value,
+            uuid = row[UsersTable.uuid],
             username = row[UsersTable.username],
             password = row[UsersTable.password],
             salt = row[UsersTable.salt],

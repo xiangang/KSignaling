@@ -5,10 +5,11 @@ import org.jetbrains.exposed.sql.jodatime.date
 import org.jetbrains.exposed.sql.jodatime.datetime
 
 object UsersTable : LongIdTable(name = "user") {
+    val uuid = long("uuid").uniqueIndex()
     val username = varchar("username", 50).uniqueIndex()
     val password = varchar("password", 128)
-    val email = varchar("email", 100).nullable()
-    val phone = varchar("phone", 20).nullable()
+    val email = varchar("email", 100).nullable().uniqueIndex()
+    val phone = varchar("phone", 20).nullable().uniqueIndex()
     val salt = varchar("salt", 32)
     val nickname = varchar("nickname", 50).nullable()
     val avatar = varchar("avatar", 200).nullable()
