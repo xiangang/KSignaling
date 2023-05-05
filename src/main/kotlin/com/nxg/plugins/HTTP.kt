@@ -107,7 +107,7 @@ fun Application.configureHTTP() {
                 )
             }
         }
-        //认证后才能访问的接口定义使用authenticate定义
+        //认证后才能访问的接口使用authenticate定义
         authenticate {
             get("/me") {
                 val user = call.user
