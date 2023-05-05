@@ -1,6 +1,5 @@
 package com.nxg.plugins
 
-import io.ktor.network.sockets.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import java.time.Duration
@@ -10,11 +9,11 @@ import java.util.*
 import kotlin.collections.LinkedHashSet
 import com.nxg.connection.Connection
 import com.nxg.data.entity.SimpleUser
-import com.nxg.data.entity.User
 import com.nxg.data.entity.toSimpleUser
 import com.nxg.jwt.JwtConfig
-import com.nxg.push.PushManager
-import com.nxg.push.PushSession
+import com.nxg.signaling.SignalingManager
+import com.nxg.signaling.SignalingSession
+import com.nxg.signaling.Signaling
 import kotlinx.serialization.json.Json
 
 fun Application.configureSockets() {
@@ -70,7 +69,7 @@ fun Application.configureSockets() {
                 }
             }
         }
-        webSocket("/push") {
+        webSocket("/signaling") {
             val token = call.request.headers["Authorization"]
             if (token == null) {
                 close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Token is null"))
@@ -83,17 +82,38 @@ fun Application.configureSockets() {
             }
             // websocketSession
             println("Adding push user $user!")
-            val pushSession = PushSession(user.id, this)
-            PushManager.pushSessions += pushSession
+            val newSignalingSession = SignalingSession(user, this)
+            SignalingManager.signalingSessions += newSignalingSession
             val json = Json.encodeToString(SimpleUser.serializer(), user.toSimpleUser())
             send(json)
-            outgoing.send(Frame.Text("Welcome ${user.username}"))
+            //outgoing.send(Frame.Text("Welcome ${user.username}"))
             //测试发现不加这个代码websocket会立刻断开
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val text = frame.readText()
                     if (text.equals("bye", ignoreCase = true)) {
                         close(CloseReason(CloseReason.Codes.NORMAL, "Client said BYE"))
+                    }
+                    try {
+                        val signaling = Json.decodeFromString(Signaling.serializer(), text)
+                        println(signaling)
+                        for (signalingSession in SignalingManager.signalingSessions) {
+                            if (signaling.toUsers.contains(signalingSession.user.uuid.toString())) {
+                                signalingSession.session.send(text)
+                            }
+                        }
+                        when (signaling.action) {
+                            "call" -> {
+
+
+                            }
+
+                            "answer" -> {
+
+                            }
+                        }
+                    } catch (e: Exception) {
+                        println("signaling ${e.message}")
                     }
                 }
             }
