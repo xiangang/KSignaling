@@ -3,10 +3,10 @@ package com.nxg.jwt
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier
 import com.auth0.jwt.algorithms.Algorithm
+import com.auth0.jwt.exceptions.JWTVerificationException
 import com.nxg.data.entity.User
+import com.nxg.repository.UserRepository
 import com.nxg.utils.HoconUtils
-import com.typesafe.config.ConfigFactory
-import io.ktor.server.config.*
 import java.util.*
 
 object JwtConfig {
@@ -31,4 +31,21 @@ object JwtConfig {
         .withClaim("username", user.username)
         .withExpiresAt(Date(System.currentTimeMillis() + validityInMs))
         .sign(algorithm)
+
+    fun getUserByToken(token: String): User? {
+        try {
+            println("isValidToken token $token")
+            val jwt = verifier.verify(token)
+            if (jwt.expiresAt == null) {
+                println("isValidToken token expired")
+                return null
+            }
+            val id = jwt.subject
+            println("isValidToken id $id")
+            return UserRepository.findById(id.toLong())
+        } catch (e: JWTVerificationException) {
+            println("isValidToken ${e.message}")
+        }
+        return null
+    }
 }
