@@ -1,6 +1,7 @@
 package com.nxg.plugins
 
 import com.nxg.data.entity.User
+import com.nxg.data.entity.toSimpleUser
 import com.nxg.jwt.JwtConfig
 import com.nxg.repository.UserRepository
 import com.nxg.utils.PasswordUtils
@@ -47,7 +48,7 @@ fun Application.configureHTTP() {
     }
 
     routing {
-        post("/register") {
+        post("/api/v1/register") {
             val request = call.receive<RegisterRequest>()
             val user = UserRepository.findByUsername(request.username)
             if (user != null) {
@@ -78,12 +79,12 @@ fun Application.configureHTTP() {
                     mapOf(
                         "code" to HttpStatusCode.OK.value,
                         "message" to HttpStatusCode.OK.description,
-                        "data" to newUser
+                        "data" to newUser.toSimpleUser()
                     )
                 )
             }
         }
-        post("/login") {
+        post("/api/v1/login") {
             val request = call.receive<LoginRequest>()
             val user = UserRepository.findByUsername(request.username)
             if (user == null || !verifyPassword(request.password, user.salt, user.password)) {
@@ -102,14 +103,14 @@ fun Application.configureHTTP() {
                     mapOf(
                         "code" to HttpStatusCode.OK.value,
                         "message" to HttpStatusCode.OK.description,
-                        "data" to mapOf("token" to token)
+                        "data" to mapOf("token" to token, "user" to user.toSimpleUser())
                     )
                 )
             }
         }
         //认证后才能访问的接口使用authenticate定义
         authenticate {
-            get("/me") {
+            get("/api/v1/me") {
                 val user = call.user
                 call.respond(user)
             }
