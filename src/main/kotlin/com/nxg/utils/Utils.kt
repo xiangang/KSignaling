@@ -1,6 +1,5 @@
 package com.nxg.utils
 
-import com.nxg.jwt.JwtConfig
 import com.typesafe.config.ConfigFactory
 import io.ktor.server.config.*
 import org.mindrot.jbcrypt.BCrypt
