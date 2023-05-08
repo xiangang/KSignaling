@@ -3,7 +3,6 @@ package com.nxg.data.entity
 import kotlinx.serialization.Serializable
 import org.joda.time.LocalDate
 import org.joda.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 data class User(
     val id: Long,

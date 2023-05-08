@@ -1,7 +1,6 @@
 package com.nxg.data.entity
 
 import org.jetbrains.exposed.dao.id.LongIdTable
-import org.jetbrains.exposed.sql.jodatime.date
 import org.jetbrains.exposed.sql.jodatime.datetime
 
 object FriendTable : LongIdTable(name = "friend") {
