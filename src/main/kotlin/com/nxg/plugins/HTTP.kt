@@ -144,7 +144,7 @@ fun Application.configureHTTP() {
                 )
             }
 
-            get("/user/{userId}/groups") {
+            get("$API_V1/user/{userId}/groups") {
                 val userId = call.parameters["userId"]?.toLongOrNull()
                 if (userId == null) {
                     call.respond(
@@ -180,7 +180,7 @@ fun Application.configureHTTP() {
             }
 
             //加入群组
-            post("/groups/{groupId}/join") {
+            post("$API_V1/groups/{groupId}/join") {
                 val joinGroupId = call.parameters["groupId"]?.toLongOrNull()
                 if (joinGroupId == null) {
                     call.respond(
