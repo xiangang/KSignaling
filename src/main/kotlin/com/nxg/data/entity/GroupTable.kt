@@ -11,13 +11,13 @@ object GroupTable : LongIdTable(name = "group") {
     val createTime = datetime("create_time").defaultExpression(CurrentDateTime)
 }
 
-object GroupMemberTable : LongIdTable() {
-    val groupId = reference("group_id", UserTable)
+object GroupMemberTable : LongIdTable(name = "group_member") {
+    val groupId = reference("group_id", GroupTable)
     val userId = reference("user_id", UserTable)
 }
 
-object GroupMessageTable : LongIdTable() {
-    val groupId = reference("group_id", UserTable)
+object GroupMessageTable : LongIdTable(name = "group_message") {
+    val groupId = reference("group_id", GroupTable)
     val senderId = reference("sender_id", UserTable)
     val messageContent = varchar("message_content", 255)
     val sendTime = datetime("send_time").defaultExpression(CurrentDateTime)
