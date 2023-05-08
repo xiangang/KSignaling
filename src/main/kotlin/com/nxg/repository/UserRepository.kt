@@ -60,7 +60,7 @@ object UserRepository {
         }
     }
 
-    private fun toUser(row: ResultRow): User {
+     fun toUser(row: ResultRow): User {
         return User(
             id = row[UserTable.id].value,
             uuid = row[UserTable.uuid],

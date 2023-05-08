@@ -41,3 +41,33 @@ CREATE TABLE friend
     FOREIGN KEY (user_id) REFERENCES user (id),
     FOREIGN KEY (friend_id) REFERENCES user (id)
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE group
+(
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(50) UNIQUE NOT NULL,
+    creator_id  BIGINT             NOT NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (creator_id) REFERENCES user (id)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE group_member
+(
+    id       BIGINT AUTO_INCREMENT PRIMARY KEY,
+    group_id BIGINT NOT NULL,
+    user_id  BIGINT NOT NULL,
+    FOREIGN KEY (group_id) REFERENCES group (id),
+    FOREIGN KEY (user_id) REFERENCES user (id)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE group_message
+(
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    group_id        BIGINT       NOT NULL,
+    sender_id       BIGINT       NOT NULL,
+    message_content VARCHAR(255) NOT NULL,
+    send_time       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES group (id),
+    FOREIGN KEY (sender_id) REFERENCES user (id)
+);

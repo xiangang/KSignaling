@@ -1,9 +1,9 @@
 package com.nxg.plugins
 
-import com.nxg.data.entity.User
-import com.nxg.data.entity.toSimpleUser
+import com.nxg.data.entity.*
 import com.nxg.jwt.JwtConfig
 import com.nxg.repository.UserRepository
+import com.nxg.room.Room
 import com.nxg.utils.PasswordUtils
 import com.nxg.utils.PasswordUtils.hashPassword
 import com.nxg.utils.PasswordUtils.verifyPassword
@@ -18,9 +18,14 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.insertAndGetId
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.LocalDateTime
 import java.util.*
 
+const val API_V1 = "/api/v1"
 fun Application.configureHTTP() {
     install(CORS) {
         allowMethod(HttpMethod.Options)
@@ -48,7 +53,7 @@ fun Application.configureHTTP() {
     }
 
     routing {
-        post("/api/v1/register") {
+        post("$API_V1/register") {
             val request = call.receive<RegisterRequest>()
             val user = UserRepository.findByUsername(request.username)
             if (user != null) {
@@ -84,7 +89,7 @@ fun Application.configureHTTP() {
                 )
             }
         }
-        post("/api/v1/login") {
+        post("$API_V1/login") {
             val request = call.receive<LoginRequest>()
             val user = UserRepository.findByUsername(request.username)
             if (user == null || !verifyPassword(request.password, user.salt, user.password)) {
@@ -108,11 +113,153 @@ fun Application.configureHTTP() {
                 )
             }
         }
+
         //认证后才能访问的接口使用authenticate定义
         authenticate {
-            get("/api/v1/me") {
+            get("$API_V1/me") {
                 val user = call.user
                 call.respond(user)
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to user
+                    )
+                )
+            }
+
+            // 获取所有用户
+            get("$API_V1/users") {
+                val users = transaction {
+                    UserTable.selectAll().map { UserRepository.toUser(it).toSimpleUser() }
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to users
+                    )
+                )
+            }
+            // 获取所有群组
+            get("$API_V1/groups") {
+                val groups = transaction {
+                    GroupTable.selectAll()
+                        .map {
+                            Group(
+                                it[GroupTable.id].value,
+                                it[GroupTable.groupName],
+                                it[GroupTable.creatorId].value
+                            )
+                        }
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to groups
+                    )
+                )
+            }
+
+            // 获取所有群组成员
+            get("$API_V1/group-members") {
+                val groupMembers = transaction {
+                    GroupMemberTable.selectAll().map {
+                        GroupMember(
+                            it[GroupMemberTable.id].value,
+                            it[GroupMemberTable.groupId].value,
+                            it[GroupMemberTable.userId].value
+                        )
+                    }
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to groupMembers
+                    )
+                )
+            }
+
+            // 获取所有群组消息
+            get("$API_V1/group-messages") {
+                val groupMessages = transaction {
+                    GroupMessageTable.selectAll().map {
+                        GroupMessage(
+                            it[GroupMessageTable.id].value,
+                            it[GroupMessageTable.groupId].value,
+                            it[GroupMessageTable.senderId].value,
+                            it[GroupMessageTable.messageContent]
+                        )
+                    }
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to groupMessages
+                    )
+                )
+            }
+
+            // 创建一个群组
+            post("$API_V1/group") {
+                val group = call.receive<Group>()
+                val groupId = transaction {
+                    GroupTable.insertAndGetId {
+                        it[groupName] = group.groupName
+                        it[creatorId] = group.creatorId
+                    }.value
+                }
+                call.respond(
+                    HttpStatusCode.Created,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to Group(groupId, group.groupName, group.creatorId)
+                    )
+                )
+            }
+
+            // 增加群组成员
+            post("$API_V1/group-members") {
+                val groupMember = call.receive<GroupMember>()
+                val memberId = transaction {
+                    GroupMemberTable.insertAndGetId {
+                        it[groupId] = groupMember.groupId
+                        it[userId] = groupMember.userId
+                    }.value
+                }
+                call.respond(
+                    HttpStatusCode.Created,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to GroupMember(memberId, groupMember.groupId, groupMember.userId)
+                    )
+                )
+            }
+
+            // 插入群组消息
+            post("$API_V1/group-messages") {
+                val groupMessage = call.receive<GroupMessage>()
+                val messageId = transaction {
+                    GroupMessageTable.insertAndGetId {
+                        it[groupId] = groupMessage.groupId
+                        it[senderId] = groupMessage.senderId
+                        it[messageContent] = groupMessage.messageContent
+                    }.value
+                }
+                call.respond(
+                    HttpStatusCode.Created,
+                    GroupMessage(messageId, groupMessage.groupId, groupMessage.senderId, groupMessage.messageContent)
+                )
             }
         }
     }
