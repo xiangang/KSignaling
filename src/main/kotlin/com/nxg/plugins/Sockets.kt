@@ -14,6 +14,10 @@ import com.nxg.jwt.JwtConfig
 import com.nxg.signaling.SignalingManager
 import com.nxg.signaling.SignalingSession
 import com.nxg.signaling.Signaling
+import com.nxg.sip.CallSession
+import com.nxg.sip.callSessionId
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
+import kotlinx.coroutines.channels.consumeEach
 import kotlinx.serialization.json.Json
 
 fun Application.configureSockets() {
@@ -25,9 +29,10 @@ fun Application.configureSockets() {
     }
     routing {
         val connections = Collections.synchronizedSet<Connection>(LinkedHashSet())
-        webSocket("/chat/{roomId}") {
-            val roomId = call.parameters["roomId"]
-            println("Adding user in room $roomId!")
+        //聊天管理
+        webSocket("/chat}") {
+            val userId = call.parameters["userId"]
+            println("Chat to user $userId!")
             val thisConnection = Connection(this)
             connections += thisConnection
             try {
@@ -47,7 +52,8 @@ fun Application.configureSockets() {
                 connections -= thisConnection
             }
         }
-        webSocket("/ws") { // websocketSession
+        //房间管理
+        webSocket("/room/{roomId}") { // websocketSession
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val text = frame.readText()
@@ -58,17 +64,7 @@ fun Application.configureSockets() {
                 }
             }
         }
-        webSocket("/friend") { // websocketSession
-            for (frame in incoming) {
-                if (frame is Frame.Text) {
-                    val text = frame.readText()
-                    outgoing.send(Frame.Text("YOU SAID: $text"))
-                    if (text.equals("bye", ignoreCase = true)) {
-                        close(CloseReason(CloseReason.Codes.NORMAL, "Client said BYE"))
-                    }
-                }
-            }
-        }
+        //信令管理
         webSocket("/signaling") {
             val token = call.request.headers["Authorization"]
             if (token == null) {
@@ -85,8 +81,7 @@ fun Application.configureSockets() {
             val newSignalingSession = SignalingSession(user, this)
             SignalingManager.signalingSessions += newSignalingSession
             val json = Json.encodeToString(SimpleUser.serializer(), user.toSimpleUser())
-            send(json)
-            //outgoing.send(Frame.Text("Welcome ${user.username}"))
+            //send(json)
             //测试发现不加这个代码websocket会立刻断开
             for (frame in incoming) {
                 if (frame is Frame.Text) {
@@ -99,6 +94,7 @@ fun Application.configureSockets() {
                         println(signaling)
                         for (signalingSession in SignalingManager.signalingSessions) {
                             if (signaling.toUsers.contains(signalingSession.user.uuid.toString())) {
+                                println("signaling ${user.username} send $text to ${signalingSession.user.username} ")
                                 signalingSession.session.send(text)
                             }
                         }
@@ -116,6 +112,27 @@ fun Application.configureSockets() {
                         println("signaling ${e.message}")
                     }
                 }
+            }
+        }
+
+        val callSessions = mutableMapOf<String, CallSession>()
+
+        webSocket("/sip") {
+            val callId = callSessionId()
+            val callSession = CallSession(callId, this)
+            callSessions[callId] = callSession
+            try {
+                incoming.consumeEach { frame ->
+                    if (frame is Frame.Text) {
+                        val message = frame.readText()
+                        callSession.handleMessage(message)
+                    }
+                }
+            } catch (e: ClosedReceiveChannelException) {
+                // Client disconnected
+            } finally {
+                callSessions.remove(callId)
+                callSession.close()
             }
         }
 
