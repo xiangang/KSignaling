@@ -11,8 +11,11 @@ import com.typesafe.config.ConfigFactory
 import io.ktor.server.config.*
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.net.InetAddress
 
 fun main() {
+    val ip = InetAddress.getLocalHost().hostAddress
+    println("KSignaling IP：$ip")
     KSignalingDatabase.database
     transaction {
         SchemaUtils.create(UserTable, FriendTable, GroupTable, GroupMemberTable, GroupMessageTable)
