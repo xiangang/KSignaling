@@ -118,13 +118,12 @@ fun Application.configureHTTP() {
         authenticate {
             get("$API_V1/me") {
                 val user = call.user
-                call.respond(user)
                 call.respond(
                     HttpStatusCode.OK,
                     mapOf(
                         "code" to HttpStatusCode.OK.value,
                         "message" to HttpStatusCode.OK.description,
-                        "data" to user
+                        "data" to user.toSimpleUser()
                     )
                 )
             }
@@ -196,7 +195,7 @@ fun Application.configureHTTP() {
                 val joinGroupRequest = call.receive<JoinGroupRequest>()
                 val joinUserId = joinGroupRequest.userId
                 transaction {
-                    GroupMemberTable.insert {
+                    GroupMemberTable.insertAndGetId{
                         it[groupId] = joinGroupId
                         it[userId] = joinUserId
                     }
