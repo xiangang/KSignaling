@@ -1,6 +1,5 @@
 package com.nxg.data.entity
 
-import org.joda.time.LocalDate
 import org.joda.time.LocalDateTime
 
 data class Friend(

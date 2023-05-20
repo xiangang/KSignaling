@@ -1,8 +1,10 @@
 package com.nxg.plugins
 
+import com.nxg.data.db.KSignalingDatabase
 import com.nxg.data.entity.*
 import com.nxg.jwt.JwtConfig
 import com.nxg.repository.UserRepository
+import com.nxg.signaling.SignalingManager
 import com.nxg.utils.PasswordUtils
 import com.nxg.utils.PasswordUtils.hashPassword
 import com.nxg.utils.PasswordUtils.verifyPassword
@@ -17,10 +19,8 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.insertAndGetId
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.selectAll
+import io.ktor.websocket.*
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.LocalDateTime
 import java.util.*
@@ -142,7 +142,7 @@ fun Application.configureHTTP() {
                     )
                 )
             }
-
+            //获取指定用户所在的所有群组
             get("$API_V1/user/{userId}/groups") {
                 val userId = call.parameters["userId"]?.toLongOrNull()
                 if (userId == null) {
@@ -195,7 +195,7 @@ fun Application.configureHTTP() {
                 val joinGroupRequest = call.receive<JoinGroupRequest>()
                 val joinUserId = joinGroupRequest.userId
                 transaction {
-                    GroupMemberTable.insertAndGetId{
+                    GroupMemberTable.insertAndGetId {
                         it[groupId] = joinGroupId
                         it[userId] = joinUserId
                     }
@@ -326,6 +326,155 @@ fun Application.configureHTTP() {
                 call.respond(
                     HttpStatusCode.Created,
                     GroupMessage(messageId, groupMessage.groupId, groupMessage.senderId, groupMessage.messageContent)
+                )
+            }
+
+            post("/addFriend") {
+                val userId = call.parameters["userId"]?.toLongOrNull()
+                if (userId == null) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "code" to HttpStatusCode.NoContent.value,
+                            "message" to "Missing userId parameter",
+                            "data" to null
+                        )
+                    )
+                    return@post
+                }
+                val friendId = call.parameters["friendId"]?.toLongOrNull()
+                if (friendId == null) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "code" to HttpStatusCode.NoContent.value,
+                            "message" to "Missing friendId parameter",
+                            "data" to null
+                        )
+                    )
+                    return@post
+                }
+                // 验证用户是否存在
+                val user = UserRepository.findById(userId)
+                if (user == null) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "code" to HttpStatusCode.NoContent.value,
+                            "message" to "User not exist!",
+                            "data" to null
+                        )
+                    )
+                    return@post
+                }
+                val friend = UserRepository.findById(friendId)
+                if (friend == null) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "code" to HttpStatusCode.NoContent.value,
+                            "message" to "User not exist!",
+                            "data" to null
+                        )
+                    )
+                    return@post
+                }
+                transaction(KSignalingDatabase.database) {
+                    FriendTable.insert {
+                        it[user_id] = userId
+                        it[friend_id] = friendId
+                        it[create_time] = user.createTime.toDateTime()
+                        it[update_time] = user.updateTime.toDateTime()
+                    }
+                }
+                //websocket通知
+                SignalingManager.sendMsg2User(user.uuid, "")
+
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to null
+                    )
+                )
+            }
+
+            post("/ackAddFriendRequest") {
+                val userId = call.parameters["userId"]?.toLongOrNull()
+                if (userId == null) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "code" to HttpStatusCode.NoContent.value,
+                            "message" to "Missing userId parameter",
+                            "data" to null
+                        )
+                    )
+                    return@post
+                }
+                val friendId = call.parameters["friendId"]?.toLongOrNull()
+                if (friendId == null) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "code" to HttpStatusCode.NoContent.value,
+                            "message" to "Missing friendId parameter",
+                            "data" to null
+                        )
+                    )
+                    return@post
+                }
+                val agree = call.parameters["agree"]?.toBooleanStrictOrNull()
+                if (agree == null) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "code" to HttpStatusCode.NoContent.value,
+                            "message" to "Missing agree parameter",
+                            "data" to null
+                        )
+                    )
+                    return@post
+                }
+                // 验证用户是否存在
+                val user = UserRepository.findById(userId)
+                if (user == null) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "code" to HttpStatusCode.NoContent.value,
+                            "message" to "User not exist!",
+                            "data" to null
+                        )
+                    )
+                    return@post
+                }
+                val friend = UserRepository.findById(friendId)
+                if (friend == null) {
+                    call.respond(
+                        HttpStatusCode.OK,
+                        mapOf(
+                            "code" to HttpStatusCode.NoContent.value,
+                            "message" to "User not exist!",
+                            "data" to null
+                        )
+                    )
+                    return@post
+                }
+                transaction(KSignalingDatabase.database) {
+                    FriendTable.update({ (FriendTable.user_id eq userId) and (FriendTable.friend_id eq friendId) }) {
+                        it[relation_status] = if (agree) 1 else 2
+                        it[update_time] = LocalDateTime().toDateTime()
+                    }
+                }
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "code" to HttpStatusCode.OK.value,
+                        "message" to HttpStatusCode.OK.description,
+                        "data" to null
+                    )
                 )
             }
         }
