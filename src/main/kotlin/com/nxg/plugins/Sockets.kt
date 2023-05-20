@@ -8,12 +8,8 @@ import io.ktor.server.routing.*
 import java.util.*
 import kotlin.collections.LinkedHashSet
 import com.nxg.connection.Connection
-import com.nxg.data.entity.SimpleUser
-import com.nxg.data.entity.toSimpleUser
 import com.nxg.jwt.JwtConfig
-import com.nxg.signaling.SignalingManager
-import com.nxg.signaling.SignalingSession
-import com.nxg.signaling.Signaling
+import com.nxg.signaling.*
 import com.nxg.sip.CallSession
 import com.nxg.sip.callSessionId
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
@@ -76,13 +72,13 @@ fun Application.configureSockets() {
                 close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Invalid token"))
                 return@webSocket
             }
-            // websocketSession
             println("Adding push user $user!")
+            // 将 SignalingSession 对象与用户 ID 相关联
             val newSignalingSession = SignalingSession(user, this)
-            SignalingManager.signalingSessions += newSignalingSession
-            val json = Json.encodeToString(SimpleUser.serializer(), user.toSimpleUser())
+            SignalingManager.sessions[user.uuid] = newSignalingSession
+            //val json = Json.encodeToString(SimpleUser.serializer(), user.toSimpleUser())
             //send(json)
-            //测试发现不加这个代码websocket会立刻断开
+            // 处理从客户端发送的消息
             for (frame in incoming) {
                 if (frame is Frame.Text) {
                     val text = frame.readText()
@@ -92,35 +88,25 @@ fun Application.configureSockets() {
                     try {
                         val signaling = Json.decodeFromString(Signaling.serializer(), text)
                         println(signaling)
-                        for (signalingSession in SignalingManager.signalingSessions) {
-                            if (signaling.toUsers.contains(signalingSession.user.uuid.toString())) {
-                                println("signaling ${user.username} send $text to ${signalingSession.user.username} ")
-                                signalingSession.session.send(text)
-                            }
-                        }
-                        when (signaling.action) {
-                            "call" -> {
-
-
-                            }
-
-                            "answer" -> {
-
-                            }
+                        for (signalingUser in signaling.toUsers) {
+                            println("signaling ${user.username} send $text to ${signalingUser.username} ")
+                            SignalingManager.sendMsg2User(signalingUser.uuid, text)
                         }
                     } catch (e: Exception) {
-                        println("signaling ${e.message}")
+                        println("signaling error ${e.message}")
                     }
                 }
             }
+
+            // 连接关闭时，从映射中删除 SignalingSession 对象
+            SignalingManager.sessions.remove(user.uuid)
         }
 
-        val callSessions = mutableMapOf<String, CallSession>()
-
+        val sipSessions = mutableMapOf<String, CallSession>()
         webSocket("/sip") {
             val callId = callSessionId()
             val callSession = CallSession(callId, this)
-            callSessions[callId] = callSession
+            sipSessions[callId] = callSession
             try {
                 incoming.consumeEach { frame ->
                     if (frame is Frame.Text) {
@@ -131,7 +117,7 @@ fun Application.configureSockets() {
             } catch (e: ClosedReceiveChannelException) {
                 // Client disconnected
             } finally {
-                callSessions.remove(callId)
+                sipSessions.remove(callId)
                 callSession.close()
             }
         }
