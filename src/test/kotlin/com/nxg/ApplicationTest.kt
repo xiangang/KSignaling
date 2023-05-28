@@ -1,6 +1,9 @@
 package com.nxg
 
 import com.google.gson.Gson
+import com.nxg.im.TextMessage
+import com.nxg.im.TextMsgContent
+import com.nxg.im.toJson
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.server.testing.*
@@ -13,7 +16,8 @@ import com.nxg.signaling.SignalingUser
 import com.nxg.sip.SipMessage
 import com.nxg.sip.SipMethod
 import com.nxg.sip.SipStatus
-import java.time.LocalDateTime
+import com.nxg.utils.GsonUtils
+import java.sql.Timestamp
 
 class ApplicationTest {
     @Test
@@ -25,6 +29,20 @@ class ApplicationTest {
             assertEquals(HttpStatusCode.OK, status)
             assertEquals("Hello World!", bodyAsText())
         }
+    }
+
+    @Test
+    fun testIMMessage() = testApplication {
+        println("testIMMessage")
+        println(
+            TextMessage(
+                "51691563050860544",
+                "51691563610275840",
+                "TextMessage",
+                TextMsgContent("123"),
+                Timestamp(System.currentTimeMillis()).toString()
+            ).toJson()
+        )
     }
 
     @Test

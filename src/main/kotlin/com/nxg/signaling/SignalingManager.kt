@@ -1,9 +1,6 @@
 package com.nxg.signaling
 
-import com.nxg.data.entity.User
 import io.ktor.websocket.*
-import java.util.*
-import kotlin.collections.LinkedHashSet
 
 object SignalingManager {
 

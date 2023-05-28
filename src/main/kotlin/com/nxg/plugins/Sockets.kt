@@ -1,13 +1,13 @@
 package com.nxg.plugins
 
+import com.nxg.connection.IMManager
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import java.time.Duration
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
-import java.util.*
-import kotlin.collections.LinkedHashSet
-import com.nxg.connection.Connection
+import com.nxg.connection.IMSession
+import com.nxg.im.*
 import com.nxg.jwt.JwtConfig
 import com.nxg.signaling.*
 import com.nxg.sip.CallSession
@@ -24,29 +24,37 @@ fun Application.configureSockets() {
         masking = false
     }
     routing {
-        val connections = Collections.synchronizedSet<Connection>(LinkedHashSet())
         //聊天管理
-        webSocket("/chat}") {
-            val userId = call.parameters["userId"]
-            println("Chat to user $userId!")
-            val thisConnection = Connection(this)
-            connections += thisConnection
-            try {
-                send("You are connected! There are ${connections.count()} users here.")
-                for (frame in incoming) {
-                    frame as? Frame.Text ?: continue
-                    val receivedText = frame.readText()
-                    val textWithUsername = "[${thisConnection.name}]: $receivedText"
-                    connections.forEach {
-                        it.session.send(textWithUsername)
-                    }
-                }
-            } catch (e: Exception) {
-                println(e.localizedMessage)
-            } finally {
-                println("Removing $thisConnection!")
-                connections -= thisConnection
+        webSocket("/chat") {
+            val token = call.request.headers["Authorization"]
+            if (token == null) {
+                close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Token is null"))
+                return@webSocket
             }
+            val user = JwtConfig.getUserByToken(token)
+            if (user == null) {
+                close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Invalid token"))
+                return@webSocket
+            }
+            println("Adding chat user $user!")
+            val imSession = IMSession(user, this)
+            IMManager.sessions[user.uuid] = imSession
+
+            for (frame in incoming) {
+                frame as? Frame.Text ?: continue
+                val receivedText = frame.readText()
+
+                try {
+                    val imMessage: IMMessage = receivedText.parseMessage()
+                    println("chat ${user.username} send $receivedText to ${imMessage.receiver_id} ")
+                    IMManager.sendMsg2User(imMessage.receiver_id.toLong(), receivedText)
+                } catch (e: Exception) {
+                    println(e.localizedMessage)
+                }
+            }
+            println("Removing $imSession!")
+            IMManager.sessions.remove(user.uuid)
+
         }
         //房间管理
         webSocket("/room/{roomId}") { // websocketSession

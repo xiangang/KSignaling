@@ -1,5 +1,6 @@
 package com.nxg.utils
 
+import com.google.gson.Gson
 import com.typesafe.config.ConfigFactory
 import io.ktor.server.config.*
 import org.mindrot.jbcrypt.BCrypt
@@ -32,6 +33,13 @@ object SnowflakeUtils {
     private val workId = HoconUtils.config.property("ktor.workId").getString().toLong()
     val snowflake by lazy {
         Snowflake(workId)
+    }
+
+}
+
+object GsonUtils {
+    val instance by lazy {
+       Gson()
     }
 
 }
