@@ -5,7 +5,7 @@ import org.jetbrains.exposed.sql.jodatime.datetime
 
 object FriendTable : LongIdTable(name = "friend") {
     val user_id = long("user_id")
-    val friend_id = long("friend_id")
+    val friend_id = reference("friend_id", UserTable.uuid)
     val relation_type = integer("relation_type").default(0)
     val relation_status = integer("relation_status").default(0)
     val remark = varchar("remark", 255).default("")

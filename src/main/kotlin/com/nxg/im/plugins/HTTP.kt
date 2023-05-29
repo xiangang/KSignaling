@@ -5,6 +5,7 @@ import com.nxg.im.jwt.JwtConfig
 import com.nxg.im.repository.UserRepository
 import com.nxg.im.core.signaling.SignalingManager
 import com.nxg.im.data.entity.*
+import com.nxg.im.repository.FriendRepository
 import com.nxg.im.utils.PasswordUtils
 import com.nxg.im.utils.PasswordUtils.hashPassword
 import com.nxg.im.utils.PasswordUtils.verifyPassword
@@ -19,6 +20,7 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.jodatime.CurrentDateTime
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.LocalDateTime
@@ -126,6 +128,61 @@ fun Application.configureHTTP() {
 }
 
 private fun Route.handleFriend() {
+    get("$API_V1/myFriends") {
+        val authorization = call.request.headers["Authorization"]
+        val authorizationArray = authorization?.split(" ")
+        if (authorizationArray == null) {
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf(
+                    "code" to HttpStatusCode.Unauthorized.value,
+                    "message" to "Token is not valid or has expired",
+                    "data" to null
+                )
+            )
+            return@get
+        }
+        if (authorizationArray.size < 2) {
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf(
+                    "code" to HttpStatusCode.Unauthorized.value,
+                    "message" to "Token is not valid or has expired",
+                    "data" to null
+                )
+            )
+            return@get
+        }
+        val token = authorizationArray[1];
+        val user = JwtConfig.getUserByToken(token)
+        if (user == null) {
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf(
+                    "code" to HttpStatusCode.Unauthorized.value,
+                    "message" to "Token is not valid or has expired",
+                    "data" to null
+                )
+            )
+            return@get
+        }
+        val friends = transaction {
+            (UserTable innerJoin FriendTable).select { FriendTable.user_id eq user.uuid }
+                .map {
+                    it[UserTable.username]
+                    it[UserTable.nickname]
+                    FriendRepository.toFriend(it)
+                }
+        }
+        call.respond(
+            HttpStatusCode.OK,
+            mapOf(
+                "code" to HttpStatusCode.OK.value,
+                "message" to HttpStatusCode.OK.description,
+                "data" to friends
+            )
+        )
+    }
     post("$API_V1/addFriend") {
         val authorization = call.request.headers["Authorization"]
         val authorizationArray = authorization?.split(" ")
