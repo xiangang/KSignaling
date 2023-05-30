@@ -1,17 +1,12 @@
 package com.nxg.im.repository
 
-import com.nxg.im.data.entity.Friend
-import com.nxg.im.data.entity.FriendTable
-import com.nxg.im.data.entity.UserTable
-import com.nxg.im.data.entity.patternYmdHms
+import com.nxg.im.data.entity.*
 import org.jetbrains.exposed.sql.ResultRow
 
 object FriendRepository {
     fun toFriend(row: ResultRow): Friend {
         return Friend(
-            friendId = row[FriendTable.friend_id],
-            friendUsername = row[UserTable.username],
-            friendNickName = row[UserTable.nickname] ?: "",
+            user = UserRepository.toUser(row).toSimpleUser(),
             relationType = row[FriendTable.relation_type],
             relationStatus = row[FriendTable.relation_status],
             remark = row[FriendTable.remark],

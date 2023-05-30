@@ -169,8 +169,6 @@ private fun Route.handleFriend() {
         val friends = transaction {
             (UserTable innerJoin FriendTable).select { FriendTable.user_id eq user.uuid }
                 .map {
-                    it[UserTable.username]
-                    it[UserTable.nickname]
                     FriendRepository.toFriend(it)
                 }
         }

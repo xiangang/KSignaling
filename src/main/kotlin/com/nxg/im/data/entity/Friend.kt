@@ -1,9 +1,7 @@
 package com.nxg.im.data.entity
 
 data class Friend(
-    val friendId: Long,
-    val friendUsername: String,
-    val friendNickName: String,
+    val user: SimpleUser,
     val relationType: Int,
     val relationStatus: Int,
     val remark: String,
