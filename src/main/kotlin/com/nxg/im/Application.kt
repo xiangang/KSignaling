@@ -16,7 +16,7 @@ fun main() {
     println("KSignaling IP：$ip")
     KSignalingDatabase.database
     transaction {
-        SchemaUtils.create(UserTable, FriendTable, GroupTable, GroupMemberTable, GroupMessageTable)
+        SchemaUtils.create(UserTable, FriendTable, GroupTable, GroupMemberTable, GroupMessageTable, MessageTable)
     }
     val config = HoconUtils.config
     val host = config.property("ktor.deployment.http.host").getString()

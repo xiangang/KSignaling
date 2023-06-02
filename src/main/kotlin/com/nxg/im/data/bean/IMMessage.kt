@@ -8,72 +8,75 @@ import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
+import kotlin.properties.Delegates
 
 @Serializable
 sealed class IMMessage {
-    abstract val sender_id: String
-    abstract val receiver_id: String
-    abstract val msg_type: String
-    abstract val msg_content: MessageContent
+    abstract val from_id: Long
+    abstract val to_id: Long
+    abstract val chat_type: Int
+    abstract val content: MessageContent
     abstract val timestamp: String
 }
 
 @Serializable
 data class TextMessage(
-    override val sender_id: String,
-    override val receiver_id: String,
-    override val msg_type: String,
-    override val msg_content: TextMsgContent,
+    override val from_id: Long,
+    override val to_id: Long,
+    override val chat_type: Int,
+    override val content: TextMsgContent,
     override val timestamp: String
 ) : IMMessage()
 
 @Serializable
 data class ImageMessage(
-    override val sender_id: String,
-    override val receiver_id: String,
-    override val msg_type: String,
-    override val msg_content: ImageMsgContent,
+    override val from_id: Long,
+    override val to_id: Long,
+    override val chat_type: Int,
+    override val content: ImageMsgContent,
     override val timestamp: String
 ) : IMMessage()
 
 @Serializable
 data class AudioMessage(
-    override val sender_id: String,
-    override val receiver_id: String,
-    override val msg_type: String = AudioMessage::class.java.simpleName,
-    override val msg_content: AudioMsgContent,
+    override val from_id: Long,
+    override val to_id: Long,
+    override val chat_type: Int,
+    override val content: AudioMsgContent,
     override val timestamp: String
 ) : IMMessage()
 
 @Serializable
 data class VideoMessage(
-    override val sender_id: String,
-    override val receiver_id: String,
-    override val msg_type: String,
-    override val msg_content: VideoMsgContent,
+    override val from_id: Long,
+    override val to_id: Long,
+    override val chat_type: Int,
+    override val content: VideoMsgContent,
     override val timestamp: String
 ) : IMMessage()
 
 @Serializable
 data class FileMessage(
-    override val sender_id: String,
-    override val receiver_id: String,
-    override val msg_type: String,
-    override val msg_content: FileMsgContent,
+    override val from_id: Long,
+    override val to_id: Long,
+    override val chat_type: Int,
+    override val content: FileMsgContent,
     override val timestamp: String
 ) : IMMessage()
 
 @Serializable
 data class LocationMessage(
-    override val sender_id: String,
-    override val receiver_id: String,
-    override val msg_type: String,
-    override val msg_content: LocationMsgContent,
+    override val from_id: Long,
+    override val to_id: Long,
+    override val chat_type: Int,
+    override val content: LocationMsgContent,
     override val timestamp: String
 ) : IMMessage()
 
 @Serializable
 sealed class MessageContent
+
+fun MessageContent.toJson(): String = Json.encodeToString(MessageContent.serializer(), this)
 
 @Serializable
 data class TextMsgContent(val text: String) : MessageContent()
@@ -97,81 +100,86 @@ fun IMMessage.toJson(): String = Json.encodeToString(IMMessage.serializer(), thi
 
 fun String.parseIMMessage(): IMMessage = Json.decodeFromString(IMMessage.serializer(), this)
 
+/*
 @OptIn(ExperimentalSerializationApi::class)
 @Serializer(forClass = IMMessage::class)
 object IMMessageSerializer : KSerializer<IMMessage> {
     override val descriptor: SerialDescriptor = buildClassSerialDescriptor("IMMessage") {
-        element<String>("sender_id")
-        element<String>("receiver_id")
+        element<Long>("from_id")
+        element<Long>("to_id")
+        element<Int>("chat_type")
         element<String>("msg_type")
-        element<MessageContent>("msg_content")
+        element<MessageContent>("content")
         element<String>("timestamp")
     }
 
     override fun serialize(encoder: Encoder, value: IMMessage) {
         val composite = encoder.beginStructure(descriptor)
-        composite.encodeStringElement(descriptor, 0, value.sender_id)
-        composite.encodeStringElement(descriptor, 1, value.receiver_id)
-        composite.encodeStringElement(descriptor, 2, value::class.simpleName!!)
-        composite.encodeSerializableElement(descriptor, 3, MessageContent.serializer(), value.msg_content)
-        composite.encodeStringElement(descriptor, 4, value.timestamp)
+        composite.encodeLongElement(descriptor, 0, value.from_id)
+        composite.encodeLongElement(descriptor, 1, value.to_id)
+        composite.encodeIntElement(descriptor, 2, value.chat_type)
+        composite.encodeStringElement(descriptor, 3, value::class.simpleName!!)
+        composite.encodeSerializableElement(descriptor, 4, MessageContent.serializer(), value.content)
+        composite.encodeStringElement(descriptor, 5, value.timestamp)
         composite.endStructure(descriptor)
     }
 
     override fun deserialize(decoder: Decoder): IMMessage {
         val composite = decoder.beginStructure(descriptor)
-        lateinit var sender_id: String
-        lateinit var receiver_id: String
+        var from_id by Delegates.notNull<Long>()
+        var to_id by Delegates.notNull<Long>()
+        var chat_type by Delegates.notNull<Int>()
         lateinit var msg_type: String
-        var msg_content: MessageContent? = null
+        lateinit var content: MessageContent
         lateinit var timestamp: String
 
         loop@ while (true) {
             when (val index = composite.decodeElementIndex(descriptor)) {
                 CompositeDecoder.DECODE_DONE -> break@loop
-                0 -> sender_id = composite.decodeStringElement(descriptor, index)
-                1 -> receiver_id = composite.decodeStringElement(descriptor, index)
-                2 -> msg_type = composite.decodeStringElement(descriptor, index)
-                3 -> msg_content = composite.decodeSerializableElement(descriptor, index, MessageContent.serializer())
-                4 -> timestamp = composite.decodeStringElement(descriptor, index)
+                0 -> from_id = composite.decodeLongElement(descriptor, index)
+                1 -> to_id = composite.decodeLongElement(descriptor, index)
+                2 -> chat_type = composite.decodeIntElement(descriptor, index)
+                3 -> msg_type = composite.decodeStringElement(descriptor, index)
+                4 -> content = composite.decodeSerializableElement(descriptor, index, MessageContent.serializer())
+                5 -> timestamp = composite.decodeStringElement(descriptor, index)
                 else -> throw SerializationException("Unknown index $index")
             }
         }
 
         composite.endStructure(descriptor)
-        println("msg_type $msg_type")
+        println("deserialize msg_type $msg_type")
         return when (msg_type) {
             TextMessage::class.simpleName -> TextMessage(
-                sender_id, receiver_id, msg_type,
-                checkNotNull(msg_content as? TextMsgContent), timestamp
+                from_id, to_id, chat_type, msg_type,
+                checkNotNull(content as? TextMsgContent), timestamp
             )
 
             ImageMessage::class.simpleName -> ImageMessage(
-                sender_id, receiver_id, msg_type,
-                checkNotNull(msg_content as? ImageMsgContent), timestamp
+                from_id, to_id, chat_type, msg_type,
+                checkNotNull(content as? ImageMsgContent), timestamp
             )
 
             AudioMessage::class.simpleName -> AudioMessage(
-                sender_id, receiver_id, msg_type,
-                checkNotNull(msg_content as? AudioMsgContent), timestamp
+                from_id, to_id, chat_type, msg_type,
+                checkNotNull(content as? AudioMsgContent), timestamp
             )
 
             VideoMessage::class.simpleName -> VideoMessage(
-                sender_id, receiver_id, msg_type,
-                checkNotNull(msg_content as? VideoMsgContent), timestamp
+                from_id, to_id, chat_type, msg_type,
+                checkNotNull(content as? VideoMsgContent), timestamp
             )
 
             FileMessage::class.simpleName -> FileMessage(
-                sender_id, receiver_id, msg_type,
-                checkNotNull(msg_content as? FileMsgContent), timestamp
+                from_id, to_id, chat_type, msg_type,
+                checkNotNull(content as? FileMsgContent), timestamp
             )
 
             LocationMessage::class.simpleName -> LocationMessage(
-                sender_id, receiver_id, msg_type,
-                checkNotNull(msg_content as? LocationMsgContent), timestamp
+                from_id, to_id, chat_type, msg_type,
+                checkNotNull(content as? LocationMsgContent), timestamp
             )
 
             else -> throw SerializationException("Unknown message type $msg_type")
         }
     }
-}
+}*/

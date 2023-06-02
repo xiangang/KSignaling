@@ -1,8 +1,6 @@
 package com.nxg
 
 import com.google.gson.Gson
-import com.nxg.im.data.bean.parseIMMessage
-import com.nxg.im.data.bean.toJson
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.server.testing.*
@@ -14,7 +12,9 @@ import com.nxg.im.core.signaling.SignalingUser
 import com.nxg.im.core.sip.SipMessage
 import com.nxg.im.core.sip.SipMethod
 import com.nxg.im.core.sip.SipStatus
+import com.nxg.im.data.bean.*
 import com.nxg.im.plugins.configureRouting
+import java.sql.Timestamp
 
 class ApplicationTest {
     @Test
@@ -31,19 +31,16 @@ class ApplicationTest {
     @Test
     fun testIMMessage() = testApplication {
         println("testIMMessage")
-        /*println(
-            TextMessage(
-                "51691563050860544",
-                "51691563610275840",
-                "TextMessage",
-                TextMsgContent("123"),
-                Timestamp(System.currentTimeMillis()).toString()
-            ).toJson()
-        )*/
-        val imMessage =
-            "{\"type\":\"com.nxg.im.TextMessage\",\"sender_id\":\"51691563050860544\",\"receiver_id\":\"51691563610275840\",\"msg_type\":\"TextMessage\",\"msg_content\":{\"text\":\"123\"},\"timestamp\":\"2023-05-28 23:25:17.288\"} "
-        println("testIMMessage: ${imMessage.parseIMMessage()}")
-        println("testIMMessage: ${imMessage.parseIMMessage().toJson()}")
+        val textMessage = TextMessage(
+            51691563050860544,
+            51691563610275840,
+            0,
+            TextMsgContent("123"),
+            Timestamp(System.currentTimeMillis()).toString()
+        ).toJson()
+        println("textMessage: $textMessage")
+        println("textMessage: ${textMessage.parseIMMessage()}")
+        println("textMessage: ${textMessage.parseIMMessage().toJson()}")
     }
 
     @Test

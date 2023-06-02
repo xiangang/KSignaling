@@ -1,11 +1,16 @@
 package com.nxg.im.plugins
 
+import com.nxg.im.core.session.IMSessionManager
 import com.nxg.im.data.db.KSignalingDatabase
 import com.nxg.im.jwt.JwtConfig
 import com.nxg.im.repository.UserRepository
 import com.nxg.im.core.signaling.SignalingManager
+import com.nxg.im.data.bean.IMMessage
+import com.nxg.im.data.bean.parseIMMessage
+import com.nxg.im.data.bean.toJson
 import com.nxg.im.data.entity.*
 import com.nxg.im.repository.FriendRepository
+import com.nxg.im.repository.MessageRepository
 import com.nxg.im.utils.PasswordUtils
 import com.nxg.im.utils.PasswordUtils.hashPassword
 import com.nxg.im.utils.PasswordUtils.verifyPassword
@@ -20,7 +25,6 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.jodatime.CurrentDateTime
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.LocalDateTime
@@ -123,7 +127,80 @@ fun Application.configureHTTP() {
 
             handleFriend()
 
+            handleChat()
+
         }
+    }
+}
+
+private fun Route.handleChat() {
+    ///发送聊天信息
+    post("$API_V1/sendChatMsg") {
+        val authorization = call.request.headers["Authorization"]
+        val authorizationArray = authorization?.split(" ")
+        if (authorizationArray == null) {
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf(
+                    "code" to HttpStatusCode.Unauthorized.value,
+                    "message" to "Token is not valid or has expired",
+                    "data" to null
+                )
+            )
+            return@post
+        }
+        if (authorizationArray.size < 2) {
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf(
+                    "code" to HttpStatusCode.Unauthorized.value,
+                    "message" to "Token is not valid or has expired",
+                    "data" to null
+                )
+            )
+            return@post
+        }
+        val token = authorizationArray[1];
+        val user = JwtConfig.getUserByToken(token)
+        if (user == null) {
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf(
+                    "code" to HttpStatusCode.Unauthorized.value,
+                    "message" to "Token is not valid or has expired",
+                    "data" to null
+                )
+            )
+            return@post
+        }
+        val parameters = call.receiveParameters()
+        parameters["content"]?.let {
+            val imMessage: IMMessage = it.parseIMMessage()
+            println("chat imMessage ${imMessage.toJson()} ")
+            println("chat ${user.username} send $it to ${imMessage.to_id} ")
+            //保存聊天记录
+            MessageRepository.save(imMessage)
+            //websocket通知相关用户
+            IMSessionManager.sendMsg2User(imMessage.to_id, it)
+            call.respond(
+                HttpStatusCode.OK,
+                mapOf(
+                    "code" to HttpStatusCode.OK.value,
+                    "message" to HttpStatusCode.OK.description,
+                    "data" to null
+                )
+            )
+            return@post
+        }
+        call.respond(
+            HttpStatusCode.Unauthorized,
+            mapOf(
+                "code" to HttpStatusCode.NoContent.value,
+                "message" to HttpStatusCode.NoContent.description,
+                "data" to null
+            )
+        )
+
     }
 }
 
