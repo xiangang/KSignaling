@@ -1,4 +1,4 @@
-package com.nxg.im.plugins
+package com.nxg.im.core.plugins
 
 import com.nxg.im.core.session.IMSession
 import com.nxg.im.core.session.IMSessionManager
@@ -7,10 +7,11 @@ import com.nxg.im.core.signaling.SignalingManager
 import com.nxg.im.core.signaling.SignalingSession
 import com.nxg.im.core.sip.CallSession
 import com.nxg.im.core.sip.callSessionId
-import com.nxg.im.data.bean.IMMessage
-import com.nxg.im.data.bean.parseIMMessage
-import com.nxg.im.data.bean.toJson
-import com.nxg.im.jwt.JwtConfig
+import com.nxg.im.core.data.bean.IMMessage
+import com.nxg.im.core.data.bean.parseIMMessage
+import com.nxg.im.core.data.bean.toJson
+import com.nxg.im.core.jwt.JwtConfig
+import com.nxg.im.core.repository.MessageRepository
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
@@ -51,8 +52,11 @@ fun Application.configureSockets() {
                 try {
                     val imMessage: IMMessage = receivedText.parseIMMessage()
                     println("chat imMessage ${imMessage.toJson()} ")
-                    println("chat ${user.username} send $receivedText to ${imMessage.to_id} ")
-                    //IMSessionManager.sendMsg2User(imMessage.conversation_id.toLong(), receivedText)
+                    println("chat ${user.username} send $receivedText to ${imMessage.toId}")
+                    //保存聊天记录
+                    MessageRepository.save(imMessage)
+                    //websocket通知相关用户
+                    IMSessionManager.sendMsg2User(imMessage.toId, receivedText)
                 } catch (e: Exception) {
                     println(e.localizedMessage)
                 }

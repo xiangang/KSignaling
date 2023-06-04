@@ -1,4 +1,4 @@
-package com.nxg.im.utils
+package com.nxg.im.core.utils
 
 import com.google.gson.Gson
 import com.typesafe.config.ConfigFactory

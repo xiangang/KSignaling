@@ -1,4 +1,4 @@
-package com.nxg.im.utils
+package com.nxg.im.core.utils
 
 class Snowflake(val workerId: Long) {
     private val twepoch = 1288834974657L

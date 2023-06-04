@@ -1,12 +1,12 @@
-package com.nxg.im.jwt
+package com.nxg.im.core.jwt
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
-import com.nxg.im.data.entity.User
-import com.nxg.im.repository.UserRepository
-import com.nxg.im.utils.HoconUtils
+import com.nxg.im.core.data.entity.User
+import com.nxg.im.core.repository.UserRepository
+import com.nxg.im.core.utils.HoconUtils
 import java.util.*
 
 object JwtConfig {

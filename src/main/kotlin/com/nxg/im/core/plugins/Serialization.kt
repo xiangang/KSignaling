@@ -1,4 +1,4 @@
-package com.nxg.im.plugins
+package com.nxg.im.core.plugins
 
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*

@@ -1,4 +1,4 @@
-package com.nxg.im.data.entity
+package com.nxg.im.core.data.entity
 
 import org.jetbrains.exposed.dao.id.LongIdTable
 import org.jetbrains.exposed.sql.jodatime.datetime

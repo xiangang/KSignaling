@@ -1,4 +1,4 @@
-package com.nxg.im.data.db
+package com.nxg.im.core.data.db
 
 import com.typesafe.config.ConfigFactory
 import io.ktor.server.config.*

@@ -1,4 +1,4 @@
-package com.nxg.im.data.entity
+package com.nxg.im.core.data.entity
 
 data class Group(val id: Long, val groupName: String, val creatorId: Long)
 data class GroupMember(val id: Long, val groupId: Long, val userId: Long)

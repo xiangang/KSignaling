@@ -1,4 +1,4 @@
-package com.nxg.im.data.entity
+package com.nxg.im.core.data.entity
 
 import kotlinx.serialization.Serializable
 import org.joda.time.LocalDate

@@ -1,12 +1,12 @@
-package com.nxg.im
+package com.nxg.im.core
 
-import com.nxg.im.data.db.KSignalingDatabase
-import com.nxg.im.data.entity.*
-import com.nxg.im.plugins.*
+import com.nxg.im.core.data.db.KSignalingDatabase
+import com.nxg.im.core.data.entity.*
+import com.nxg.im.core.plugins.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import com.nxg.im.utils.HoconUtils
+import com.nxg.im.core.utils.HoconUtils
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.net.InetAddress

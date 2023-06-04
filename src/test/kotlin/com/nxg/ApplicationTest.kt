@@ -1,6 +1,10 @@
 package com.nxg
 
 import com.google.gson.Gson
+import com.nxg.im.core.data.bean.TextMessage
+import com.nxg.im.core.data.bean.TextMsgContent
+import com.nxg.im.core.data.bean.parseIMMessage
+import com.nxg.im.core.data.bean.toJson
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.server.testing.*
@@ -12,9 +16,7 @@ import com.nxg.im.core.signaling.SignalingUser
 import com.nxg.im.core.sip.SipMessage
 import com.nxg.im.core.sip.SipMethod
 import com.nxg.im.core.sip.SipStatus
-import com.nxg.im.data.bean.*
-import com.nxg.im.plugins.configureRouting
-import java.sql.Timestamp
+import com.nxg.im.core.plugins.configureRouting
 
 class ApplicationTest {
     @Test
@@ -36,7 +38,7 @@ class ApplicationTest {
             51691563610275840,
             0,
             TextMsgContent("123"),
-            Timestamp(System.currentTimeMillis()).toString()
+            System.currentTimeMillis()
         ).toJson()
         println("textMessage: $textMessage")
         println("textMessage: ${textMessage.parseIMMessage()}")

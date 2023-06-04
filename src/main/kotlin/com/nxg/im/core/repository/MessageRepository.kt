@@ -1,10 +1,10 @@
-package com.nxg.im.repository
+package com.nxg.im.core.repository
 
-import com.nxg.im.data.bean.IMMessage
-import com.nxg.im.data.bean.toJson
-import com.nxg.im.data.db.KSignalingDatabase
-import com.nxg.im.data.entity.MessageTable
-import com.nxg.im.utils.SnowflakeUtils
+import com.nxg.im.core.data.bean.IMMessage
+import com.nxg.im.core.data.bean.toJson
+import com.nxg.im.core.data.db.KSignalingDatabase
+import com.nxg.im.core.data.entity.MessageTable
+import com.nxg.im.core.utils.SnowflakeUtils
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.transactions.transaction
 
@@ -14,9 +14,9 @@ object MessageRepository {
         transaction(KSignalingDatabase.database) {
             MessageTable.insert {
                 it[uuid] = SnowflakeUtils.snowflake.nextId()
-                it[from_id] = message.from_id
-                it[to_id] = message.to_id
-                it[chat_type] = message.chat_type
+                it[from_id] = message.fromId
+                it[to_id] = message.toId
+                it[chat_type] = message.chatType
                 it[content] = message.content.toJson()
             }
         }

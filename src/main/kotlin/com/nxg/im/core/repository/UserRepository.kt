@@ -1,8 +1,8 @@
-package com.nxg.im.repository
+package com.nxg.im.core.repository
 
-import com.nxg.im.data.db.KSignalingDatabase.database
-import com.nxg.im.data.entity.User
-import com.nxg.im.data.entity.UserTable
+import com.nxg.im.core.data.db.KSignalingDatabase.database
+import com.nxg.im.core.data.entity.User
+import com.nxg.im.core.data.entity.UserTable
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select

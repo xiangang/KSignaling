@@ -1,20 +1,20 @@
-package com.nxg.im.plugins
+package com.nxg.im.core.plugins
 
 import com.nxg.im.core.session.IMSessionManager
-import com.nxg.im.data.db.KSignalingDatabase
-import com.nxg.im.jwt.JwtConfig
-import com.nxg.im.repository.UserRepository
+import com.nxg.im.core.data.db.KSignalingDatabase
+import com.nxg.im.core.jwt.JwtConfig
+import com.nxg.im.core.repository.UserRepository
 import com.nxg.im.core.signaling.SignalingManager
-import com.nxg.im.data.bean.IMMessage
-import com.nxg.im.data.bean.parseIMMessage
-import com.nxg.im.data.bean.toJson
-import com.nxg.im.data.entity.*
-import com.nxg.im.repository.FriendRepository
-import com.nxg.im.repository.MessageRepository
-import com.nxg.im.utils.PasswordUtils
-import com.nxg.im.utils.PasswordUtils.hashPassword
-import com.nxg.im.utils.PasswordUtils.verifyPassword
-import com.nxg.im.utils.SnowflakeUtils
+import com.nxg.im.core.data.bean.IMMessage
+import com.nxg.im.core.data.bean.parseIMMessage
+import com.nxg.im.core.data.bean.toJson
+import com.nxg.im.core.data.entity.*
+import com.nxg.im.core.repository.FriendRepository
+import com.nxg.im.core.repository.MessageRepository
+import com.nxg.im.core.utils.PasswordUtils
+import com.nxg.im.core.utils.PasswordUtils.hashPassword
+import com.nxg.im.core.utils.PasswordUtils.verifyPassword
+import com.nxg.im.core.utils.SnowflakeUtils
 import io.ktor.http.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.routing.*
@@ -177,11 +177,11 @@ private fun Route.handleChat() {
         parameters["content"]?.let {
             val imMessage: IMMessage = it.parseIMMessage()
             println("chat imMessage ${imMessage.toJson()} ")
-            println("chat ${user.username} send $it to ${imMessage.to_id} ")
+            println("chat ${user.username} send $it to ${imMessage.toId} ")
             //保存聊天记录
             MessageRepository.save(imMessage)
             //websocket通知相关用户
-            IMSessionManager.sendMsg2User(imMessage.to_id, it)
+            IMSessionManager.sendMsg2User(imMessage.toId, it)
             call.respond(
                 HttpStatusCode.OK,
                 mapOf(
