@@ -1,5 +1,6 @@
 package com.nxg.im.core.plugins
 
+import com.nxg.im.core.IMCoreMessage
 import com.nxg.im.core.session.IMSession
 import com.nxg.im.core.session.IMSessionManager
 import com.nxg.im.core.signaling.Signaling
@@ -12,21 +13,26 @@ import com.nxg.im.core.data.bean.parseIMMessage
 import com.nxg.im.core.data.bean.toJson
 import com.nxg.im.core.jwt.JwtConfig
 import com.nxg.im.core.repository.MessageRepository
+import io.ktor.serialization.kotlinx.*
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.consumeEach
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.protobuf.*
 import java.time.Duration
 
+@OptIn(ExperimentalSerializationApi::class)
 fun Application.configureSockets() {
     install(WebSockets) {
         pingPeriod = Duration.ofSeconds(15)
         timeout = Duration.ofSeconds(15)
         maxFrameSize = Long.MAX_VALUE
         masking = false
+        contentConverter = KotlinxWebsocketSerializationConverter(ProtoBuf)
     }
     routing {
         //聊天管理
@@ -46,20 +52,47 @@ fun Application.configureSockets() {
             IMSessionManager.sessions[user.uuid] = imSession
 
             for (frame in incoming) {
-                frame as? Frame.Text ?: continue
-                val receivedText = frame.readText()
+                when (frame) {
+                    is Frame.Binary -> {
+                        val receivedBytes = frame.readBytes()
+                        println("chat receivedBytes $receivedBytes")
+                        val imCoreMessage = IMCoreMessage.parseFrom(receivedBytes)
+                        println("chat imCoreMessage $imCoreMessage")
+                        try {
+                            val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
+                            println("chat imMessage $imMessageJson")
+                            val imMessage: IMMessage = imCoreMessage.bodyData.toStringUtf8().parseIMMessage()
+                            println("chat ${user.username} send $imMessageJson to ${imMessage.toId}")
+                            //保存聊天记录
+                            MessageRepository.save(imMessage)
+                            //websocket通知相关用户
+                            IMSessionManager.sendMsg2User(imMessage.toId, imMessageJson)
+                        } catch (e: Exception) {
+                            println("chat ${e.message}")
+                        }
+                    }
 
-                try {
-                    val imMessage: IMMessage = receivedText.parseIMMessage()
-                    println("chat imMessage ${imMessage.toJson()} ")
-                    println("chat ${user.username} send $receivedText to ${imMessage.toId}")
-                    //保存聊天记录
-                    MessageRepository.save(imMessage)
-                    //websocket通知相关用户
-                    IMSessionManager.sendMsg2User(imMessage.toId, receivedText)
-                } catch (e: Exception) {
-                    println(e.localizedMessage)
+                    is Frame.Text -> {
+                        val receivedText = frame.readText()
+                        println("chat receivedText $receivedText")
+                        try {
+                            val imMessage: IMMessage = receivedText.parseIMMessage()
+                            println("chat imMessage ${imMessage.toJson()} ")
+                            println("chat ${user.username} send $receivedText to ${imMessage.toId}")
+                            //保存聊天记录
+                            MessageRepository.save(imMessage)
+                            //websocket通知相关用户
+                            IMSessionManager.sendMsg2User(imMessage.toId, receivedText)
+                        } catch (e: Exception) {
+                            println("chat ${e.message}")
+                        }
+                    }
+
+                    else -> {
+                        continue
+                    }
                 }
+
             }
             println("Removing $imSession!")
             IMSessionManager.sessions.remove(user.uuid)
@@ -142,3 +175,4 @@ fun Application.configureSockets() {
     }
 
 }
+
