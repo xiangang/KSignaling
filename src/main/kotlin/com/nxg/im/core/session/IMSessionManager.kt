@@ -16,4 +16,12 @@ object IMSessionManager {
         }
 
     }
+
+    suspend fun sendMsg2User(uuid: Long, byteArray: ByteArray) {
+        sessions[uuid]?.let {
+            it.session.send(byteArray)
+            println("chat send $byteArray to ${it.user.username} ")
+        }
+
+    }
 }

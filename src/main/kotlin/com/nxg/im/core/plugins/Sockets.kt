@@ -60,13 +60,13 @@ fun Application.configureSockets() {
                         println("chat imCoreMessage $imCoreMessage")
                         try {
                             val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
-                            println("chat imMessage $imMessageJson")
-                            val imMessage: IMMessage = imCoreMessage.bodyData.toStringUtf8().parseIMMessage()
+                            println("chat imMessageJson $imMessageJson")
+                            val imMessage: IMMessage = imMessageJson.parseIMMessage()
                             println("chat ${user.username} send $imMessageJson to ${imMessage.toId}")
                             //保存聊天记录
                             MessageRepository.save(imMessage)
                             //websocket通知相关用户
-                            IMSessionManager.sendMsg2User(imMessage.toId, imMessageJson)
+                            IMSessionManager.sendMsg2User(imMessage.toId, receivedBytes)
                         } catch (e: Exception) {
                             println("chat ${e.message}")
                         }
