@@ -12,15 +12,20 @@ object IMSessionManager {
     suspend fun sendMsg2User(uuid: Long, text: String) {
         sessions[uuid]?.let {
             it.session.send(text)
-            println("chat send $text to ${it.user.username} ")
+            println("IMSessionManager send $text to ${it.user.username} ")
         }
 
     }
 
-    suspend fun sendMsg2User(uuid: Long, byteArray: ByteArray) {
-        sessions[uuid]?.let {
+    suspend fun sendMsg2User(uuid: Long, byteArray: ByteArray): Boolean {
+        return sessions[uuid]?.let {
             it.session.send(byteArray)
-            println("chat send $byteArray to ${it.user.username} ")
+            println("IMSessionManager send $byteArray to ${it.user.username} ")
+            true
+        } ?: let {
+            println("IMSessionManager send $byteArray failed, user $$uuid offline !")
+            //TODO 存储离线消息
+            false
         }
 
     }

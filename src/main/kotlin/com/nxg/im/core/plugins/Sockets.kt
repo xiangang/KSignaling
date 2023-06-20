@@ -65,8 +65,30 @@ fun Application.configureSockets() {
                             println("chat ${user.username} send $imMessageJson to ${imMessage.toId}")
                             //保存聊天记录
                             MessageRepository.save(imMessage)
-                            //websocket通知相关用户
-                            IMSessionManager.sendMsg2User(imMessage.toId, receivedBytes)
+                            //发送acknowledge给fromId
+                            val imCoreMessageACK = IMCoreMessage.newBuilder().apply {
+                                version = imCoreMessage.version
+                                cmd = imCoreMessage.cmd
+                                subCmd = imCoreMessage.subCmd
+                                type = 1 // 1是acknowledge
+                                logId = imCoreMessage.logId
+                                seqId = imCoreMessage.seqId
+                                bodyLen = imCoreMessage.bodyLen
+                                bodyData = imCoreMessage.bodyData
+                            }.build()
+                            IMSessionManager.sendMsg2User(imMessage.fromId, imCoreMessageACK.toByteArray())
+                            //发送notify给toId
+                            val imCoreMessageNotify = IMCoreMessage.newBuilder().apply {
+                                version = imCoreMessage.version
+                                cmd = imCoreMessage.cmd
+                                subCmd = imCoreMessage.subCmd
+                                type = 2 //2是notify
+                                logId = imCoreMessage.logId
+                                seqId = imCoreMessage.seqId
+                                bodyLen = imCoreMessage.bodyLen
+                                bodyData = imCoreMessage.bodyData
+                            }.build()
+                            IMSessionManager.sendMsg2User(imMessage.toId, imCoreMessageNotify.toByteArray())
                         } catch (e: Exception) {
                             println("chat ${e.message}")
                         }
