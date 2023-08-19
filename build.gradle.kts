@@ -1,6 +1,5 @@
-import com.google.protobuf.gradle.protobuf
 import com.google.protobuf.gradle.generateProtoTasks
-import com.google.protobuf.gradle.id
+import com.google.protobuf.gradle.protobuf
 import com.google.protobuf.gradle.protoc
 
 
@@ -57,6 +56,7 @@ dependencies {
     implementation("com.google.protobuf:protobuf-javalite:$protobuf_version")
     implementation("org.mindrot:jbcrypt:0.4")
     implementation("ch.qos.logback:logback-classic:$logback_version")
+    implementation("io.lettuce:lettuce-core:6.2.4.RELEASE")
     testImplementation("io.ktor:ktor-server-tests-jvm:$ktor_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
 }

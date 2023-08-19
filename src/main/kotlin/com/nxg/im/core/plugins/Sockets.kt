@@ -11,6 +11,7 @@ import com.nxg.im.core.sip.callSessionId
 import com.nxg.im.core.data.bean.IMMessage
 import com.nxg.im.core.data.bean.parseIMMessage
 import com.nxg.im.core.data.bean.toJson
+import com.nxg.im.core.data.redis.KSignalingRedisClient
 import com.nxg.im.core.jwt.JwtConfig
 import com.nxg.im.core.repository.MessageRepository
 import io.ktor.serialization.kotlinx.*
@@ -18,6 +19,7 @@ import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
+import io.lettuce.core.RedisFuture
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -59,13 +61,16 @@ fun Application.configureSockets() {
                         val imCoreMessage = IMCoreMessage.parseFrom(receivedBytes)
                         println("chat imCoreMessage $imCoreMessage")
                         try {
+                            //bodyData存的是json
                             val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
                             println("chat imMessageJson $imMessageJson")
                             val imMessage: IMMessage = imMessageJson.parseIMMessage()
                             println("chat ${user.username} send $imMessageJson to ${imMessage.toId}")
-                            //保存聊天记录
-                            MessageRepository.save(imMessage)
-                            //发送acknowledge给fromId
+                            //TODO 消息去重
+
+                            //保存聊天记录，一旦落库，就认为消息接收成功，此时可以发送ACK给发送方客户端
+                            val messageId = MessageRepository.save(imMessage)
+                            //发送acknowledge(protobuf)给fromId
                             val imCoreMessageACK = IMCoreMessage.newBuilder().apply {
                                 version = imCoreMessage.version
                                 cmd = imCoreMessage.cmd
@@ -77,7 +82,7 @@ fun Application.configureSockets() {
                                 bodyData = imCoreMessage.bodyData
                             }.build()
                             IMSessionManager.sendMsg2User(imMessage.fromId, imCoreMessageACK.toByteArray())
-                            //发送notify给toId
+                            //发送notify(protobuf)给toId
                             val imCoreMessageNotify = IMCoreMessage.newBuilder().apply {
                                 version = imCoreMessage.version
                                 cmd = imCoreMessage.cmd
@@ -88,7 +93,20 @@ fun Application.configureSockets() {
                                 bodyLen = imCoreMessage.bodyLen
                                 bodyData = imCoreMessage.bodyData
                             }.build()
-                            IMSessionManager.sendMsg2User(imMessage.toId, imCoreMessageNotify.toByteArray())
+                            if (!IMSessionManager.sendMsg2User(imMessage.toId, imCoreMessageNotify.toByteArray())) {
+                                // 发送失败则使用redis存储离线消息
+                                val connection = KSignalingRedisClient.redisClient.connect()
+                                val redisCommands = connection.async()
+                                println("chat redis cache $messageId")
+                                redisCommands.hset(
+                                    "offline:${imMessage.toId}",
+                                    "$messageId",
+                                    String(receivedBytes)
+
+                                )
+                                // 关闭连接
+                                connection.close()
+                            }
                         } catch (e: Exception) {
                             println("chat ${e.message}")
                         }

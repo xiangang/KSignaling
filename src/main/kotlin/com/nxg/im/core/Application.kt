@@ -2,6 +2,7 @@ package com.nxg.im.core
 
 import com.nxg.im.core.data.db.KSignalingDatabase
 import com.nxg.im.core.data.entity.*
+import com.nxg.im.core.data.redis.KSignalingRedisClient
 import com.nxg.im.core.plugins.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -15,6 +16,7 @@ fun main() {
     val ip = InetAddress.getLocalHost().hostAddress
     println("KSignaling IP：$ip")
     KSignalingDatabase.database
+    KSignalingRedisClient.start()
     transaction {
         SchemaUtils.create(UserTable, FriendTable, GroupTable, GroupMemberTable, GroupMessageTable, MessageTable)
     }
