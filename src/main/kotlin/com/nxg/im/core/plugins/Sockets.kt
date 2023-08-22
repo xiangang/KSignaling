@@ -25,6 +25,7 @@ import kotlinx.coroutines.channels.consumeEach
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.*
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -96,13 +97,11 @@ fun Application.configureSockets() {
                             if (!IMSessionManager.sendMsg2User(imMessage.toId, imCoreMessageNotify.toByteArray())) {
                                 // 发送失败则使用redis存储离线消息
                                 val connection = KSignalingRedisClient.redisClient.connect()
-                                val redisCommands = connection.async()
+                                val redisCommands = connection.sync()
                                 println("chat redis cache $messageId")
-                                redisCommands.hset(
+                                redisCommands.lpush(
                                     "offline:${imMessage.toId}",
-                                    "$messageId",
-                                    String(receivedBytes)
-
+                                    String(imCoreMessageNotify.toByteArray(), StandardCharsets.ISO_8859_1)
                                 )
                                 // 关闭连接
                                 connection.close()

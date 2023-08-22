@@ -1,5 +1,6 @@
 package com.nxg.im.core.plugins
 
+import com.nxg.im.core.IMCoreMessage
 import com.nxg.im.core.session.IMSessionManager
 import com.nxg.im.core.data.db.KSignalingDatabase
 import com.nxg.im.core.jwt.JwtConfig
@@ -9,6 +10,7 @@ import com.nxg.im.core.data.bean.IMMessage
 import com.nxg.im.core.data.bean.parseIMMessage
 import com.nxg.im.core.data.bean.toJson
 import com.nxg.im.core.data.entity.*
+import com.nxg.im.core.data.redis.KSignalingRedisClient
 import com.nxg.im.core.repository.FriendRepository
 import com.nxg.im.core.repository.MessageRepository
 import com.nxg.im.core.utils.PasswordUtils
@@ -24,10 +26,13 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
+import io.ktor.utils.io.core.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.jodatime.CurrentDateTime
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.LocalDateTime
+import java.nio.charset.StandardCharsets
+import kotlin.text.toByteArray
 
 const val API_V1 = "/api/v1"
 fun Application.configureHTTP() {
@@ -129,12 +134,85 @@ fun Application.configureHTTP() {
 
             handleChat()
 
+            handleOfflineMsg()
+
         }
     }
 }
 
+
+private fun Route.handleOfflineMsg() {
+
+    //获取离线消息
+    get("$API_V1/offlineMsg") {
+        val authorization = call.request.headers["Authorization"]
+        val authorizationArray = authorization?.split(" ")
+        if (authorizationArray == null) {
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf(
+                    "code" to HttpStatusCode.Unauthorized.value,
+                    "message" to "Token is not valid or has expired",
+                    "data" to null
+                )
+            )
+            return@get
+        }
+        if (authorizationArray.size < 2) {
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf(
+                    "code" to HttpStatusCode.Unauthorized.value,
+                    "message" to "Token is not valid or has expired",
+                    "data" to null
+                )
+            )
+            return@get
+        }
+        val token = authorizationArray[1];
+        val user = JwtConfig.getUserByToken(token)
+        if (user == null) {
+            call.respond(
+                HttpStatusCode.Unauthorized,
+                mapOf(
+                    "code" to HttpStatusCode.Unauthorized.value,
+                    "message" to "Token is not valid or has expired",
+                    "data" to null
+                )
+            )
+            return@get
+        }
+        val pageIndex = call.parameters["pageIndex"]?.toInt() ?: 0
+        val pageSize = call.parameters["pageSize"]?.toInt() ?: 10
+        // 从Redis获取离线消息
+        val start = pageIndex * pageSize
+        val end = start + pageSize
+        val connection = KSignalingRedisClient.redisClient.connect()
+        val redisCommands = connection.sync()
+        val offlineMessages = redisCommands.lrange("offline:${user.uuid}", start.toLong(), end.toLong())
+        println("offlineMessages: $offlineMessages ${offlineMessages.size}")
+        val messages = mutableListOf<String>()
+        offlineMessages.forEach {
+            val imCoreMessage = IMCoreMessage.parseFrom(it.toByteArray(StandardCharsets.ISO_8859_1))
+            val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
+            println("offlineMessages: imMessageJson $imMessageJson")
+            messages.add(imMessageJson)
+        }
+        println("offlineMessages: messages $messages")
+        connection.close()
+        call.respond(
+            HttpStatusCode.OK,
+            mapOf(
+                "code" to HttpStatusCode.OK.value,
+                "message" to "Success",
+                "data" to messages
+            )
+        )
+    }
+}
+
 private fun Route.handleChat() {
-    ///发送聊天信息
+    //发送聊天信息
     post("$API_V1/sendChatMsg") {
         val authorization = call.request.headers["Authorization"]
         val authorizationArray = authorization?.split(" ")
