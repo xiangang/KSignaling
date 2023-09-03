@@ -23,8 +23,7 @@ object IMSessionManager {
             println("IMSessionManager send $byteArray to ${it.user.username} ")
             true
         } ?: let {
-            println("IMSessionManager send $byteArray failed, user $$uuid offline !")
-            //TODO 存储离线消息
+            println("IMSessionManager send $byteArray failed, user $uuid offline !")
             false
         }
 

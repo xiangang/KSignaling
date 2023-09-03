@@ -1,7 +1,8 @@
 package com.nxg.im.core.data.entity
 
 data class Friend(
-    val uuid: Long,
+    val userId: Long,
+    val friendId: Long,
     val username: String,
     val email: String? = "",
     val phone: String? = "",

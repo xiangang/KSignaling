@@ -10,15 +10,17 @@ import org.jetbrains.exposed.sql.transactions.transaction
 
 object MessageRepository {
 
-    fun save(message: IMMessage):Long {
+    fun save(message: IMMessage): Long {
         return transaction(KSignalingDatabase.database) {
+            val snowflakeUuid = SnowflakeUtils.snowflake.nextId()
             MessageTable.insertAndGetId {
-                it[uuid] = SnowflakeUtils.snowflake.nextId()
+                it[uuid] = snowflakeUuid
                 it[from_id] = message.fromId
                 it[to_id] = message.toId
                 it[chat_type] = message.chatType
                 it[content] = message.content.toJson()
-            }.value
+            }
+            snowflakeUuid
         }
     }
 }

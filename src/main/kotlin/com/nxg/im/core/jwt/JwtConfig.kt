@@ -20,15 +20,15 @@ object JwtConfig {
 
     val verifier: JWTVerifier = JWT
         .require(algorithm)
-        .withAudience(audience)
-        .withIssuer(issuer)
+        //.withAudience(audience) //暂时没有必要，尽量缩短token长度
+        //.withIssuer(issuer)
         .build()
 
     fun generateToken(user: User): String = JWT.create()
         .withSubject(user.uuid.toString())
-        .withAudience(audience)
-        .withIssuer(issuer)
-        .withClaim("username", user.username)
+        //.withAudience(audience) //暂时没有必要，尽量缩短token长度
+        //.withIssuer(issuer)
+        //.withClaim("username", user.username)
         .withExpiresAt(Date(System.currentTimeMillis() + validityInMs))
         .sign(algorithm)
 

@@ -7,6 +7,7 @@ import com.nxg.im.core.jwt.JwtConfig
 import com.nxg.im.core.repository.UserRepository
 import com.nxg.im.core.signaling.SignalingManager
 import com.nxg.im.core.data.bean.IMMessage
+import com.nxg.im.core.data.bean.OfflineMsg
 import com.nxg.im.core.data.bean.parseIMMessage
 import com.nxg.im.core.data.bean.toJson
 import com.nxg.im.core.data.entity.*
@@ -26,7 +27,7 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import io.ktor.utils.io.core.*
+import io.ktor.util.pipeline.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.jodatime.CurrentDateTime
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -126,6 +127,8 @@ fun Application.configureHTTP() {
         //认证后才能访问的接口使用authenticate定义
         authenticate {
 
+            handleUidGenerator()
+
             handleUser()
 
             handleGroup()
@@ -141,114 +144,103 @@ fun Application.configureHTTP() {
 }
 
 
-private fun Route.handleOfflineMsg() {
+/**
+ * 封装处理Unauthorized的respond
+ */
+private suspend fun PipelineContext<*, ApplicationCall>.respondUnauthorized() {
+    call.respond(
+        HttpStatusCode.Unauthorized,
+        mapOf(
+            "code" to HttpStatusCode.Unauthorized.value,
+            "message" to "Token is invalid or has expired",
+            "data" to null
+        )
+    )
+}
 
+
+/**
+ * 封装处理Authorization获取对应的user
+ */
+private fun PipelineContext<*, ApplicationCall>.getUserByAuthorization(): User? {
+    val authorization = call.request.headers["Authorization"]
+    val authorizationArray = authorization?.split(" ")
+    if (authorizationArray == null || authorizationArray.size < 2) {
+        return null
+    }
+    return JwtConfig.getUserByToken(authorizationArray[1])
+}
+
+private fun Route.handleOfflineMsg() {
     //获取离线消息
     get("$API_V1/offlineMsg") {
-        val authorization = call.request.headers["Authorization"]
-        val authorizationArray = authorization?.split(" ")
-        if (authorizationArray == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
-            return@get
-        }
-        if (authorizationArray.size < 2) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
-            return@get
-        }
-        val token = authorizationArray[1];
-        val user = JwtConfig.getUserByToken(token)
+        val user = getUserByAuthorization()
         if (user == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
+            respondUnauthorized()
             return@get
         }
         val pageIndex = call.parameters["pageIndex"]?.toInt() ?: 0
         val pageSize = call.parameters["pageSize"]?.toInt() ?: 10
-        // 从Redis获取离线消息
-        val start = pageIndex * pageSize
-        val end = start + pageSize
-        val connection = KSignalingRedisClient.redisClient.connect()
-        val redisCommands = connection.sync()
-        val offlineMessages = redisCommands.lrange("offline:${user.uuid}", start.toLong(), end.toLong())
-        println("offlineMessages: $offlineMessages ${offlineMessages.size}")
-        val messages = mutableListOf<String>()
-        offlineMessages.forEach {
-            val imCoreMessage = IMCoreMessage.parseFrom(it.toByteArray(StandardCharsets.ISO_8859_1))
-            val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
-            println("offlineMessages: imMessageJson $imMessageJson")
-            messages.add(imMessageJson)
-        }
-        println("offlineMessages: messages $messages")
-        connection.close()
-        call.respond(
-            HttpStatusCode.OK,
-            mapOf(
-                "code" to HttpStatusCode.OK.value,
-                "message" to "Success",
-                "data" to messages
+        val fromId = call.parameters["fromId"]
+        if (fromId.isNullOrEmpty()) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                mapOf(
+                    "code" to HttpStatusCode.BadRequest.value,
+                    "message" to "Missing fromId parameter",
+                    "data" to null
+                )
             )
-        )
+            return@get
+        }
+        // 从Redis获取离线消息
+        try {
+            val start = pageIndex * pageSize
+            val end = start + pageSize
+            val redisCommands = KSignalingRedisClient.redisClientConnection.sync()
+            val key = "offline:${user.uuid}-$fromId"
+            println("offlineMessages: key  $key")
+            val offlineMessages = redisCommands.zrange(key, start.toLong(), end.toLong())
+            val total = redisCommands.zcard(key)
+            println("offlineMessages: total $total")
+            println("offlineMessages: $offlineMessages ${offlineMessages.size}")
+            val messages = mutableListOf<String>()
+            val offlineMsg = OfflineMsg(total, messages)
+            offlineMessages.forEach {
+                val imCoreMessage = IMCoreMessage.parseFrom(it.toByteArray(StandardCharsets.ISO_8859_1))
+                val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
+                println("offlineMessages: imMessageJson $imMessageJson")
+                messages.add(it)
+            }
+            println("offlineMessages: messages $messages")
+            call.respond(
+                HttpStatusCode.OK,
+                mapOf(
+                    "code" to HttpStatusCode.OK.value,
+                    "message" to "Success",
+                    "data" to offlineMsg
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            call.respond(
+                HttpStatusCode.BadGateway,
+                mapOf(
+                    "code" to HttpStatusCode.BadGateway.value,
+                    "message" to "{${e.message}}",
+                    "data" to null
+                )
+            )
+        }
     }
 }
 
 private fun Route.handleChat() {
     //发送聊天信息
     post("$API_V1/sendChatMsg") {
-        val authorization = call.request.headers["Authorization"]
-        val authorizationArray = authorization?.split(" ")
-        if (authorizationArray == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
-            return@post
-        }
-        if (authorizationArray.size < 2) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
-            return@post
-        }
-        val token = authorizationArray[1];
-        val user = JwtConfig.getUserByToken(token)
+        val user = getUserByAuthorization()
         if (user == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
+            respondUnauthorized()
             return@post
         }
         val parameters = call.receiveParameters()
@@ -284,41 +276,9 @@ private fun Route.handleChat() {
 
 private fun Route.handleFriend() {
     get("$API_V1/myFriends") {
-        val authorization = call.request.headers["Authorization"]
-        val authorizationArray = authorization?.split(" ")
-        if (authorizationArray == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
-            return@get
-        }
-        if (authorizationArray.size < 2) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
-            return@get
-        }
-        val token = authorizationArray[1];
-        val user = JwtConfig.getUserByToken(token)
+        val user = getUserByAuthorization()
         if (user == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
+            respondUnauthorized()
             return@get
         }
         val friends = transaction {
@@ -337,41 +297,9 @@ private fun Route.handleFriend() {
         )
     }
     post("$API_V1/addFriend") {
-        val authorization = call.request.headers["Authorization"]
-        val authorizationArray = authorization?.split(" ")
-        if (authorizationArray == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
-            return@post
-        }
-        if (authorizationArray.size < 2) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
-            return@post
-        }
-        val token = authorizationArray[1];
-        val user = JwtConfig.getUserByToken(token)
+        val user = getUserByAuthorization()
         if (user == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
-                    "data" to null
-                )
-            )
+            respondUnauthorized()
             return@post
         }
         val friendId = call.receiveParameters()["friendId"]?.toLongOrNull()
@@ -428,28 +356,9 @@ private fun Route.handleFriend() {
     }
 
     post("$API_V1/ackAddFriendRequest") {
-        val authorization = call.request.headers["Authorization"]
-        val authorizationArray = authorization?.split(" ")
-        if (authorizationArray == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Missing friendId token",
-                    "data" to null
-                )
-            )
-            return@post
-        }
-        if (authorizationArray.size < 2) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Missing friendId token",
-                    "data" to null
-                )
-            )
+        val user = getUserByAuthorization()
+        if (user == null) {
+            respondUnauthorized()
             return@post
         }
         val parameters = call.receiveParameters()
@@ -472,20 +381,6 @@ private fun Route.handleFriend() {
                 mapOf(
                     "code" to HttpStatusCode.NoContent.value,
                     "message" to "Missing agree parameter",
-                    "data" to null
-                )
-            )
-            return@post
-        }
-        // 验证用户是否存在
-        val token = authorizationArray[1];
-        val user = JwtConfig.getUserByToken(token)
-        if (user == null) {
-            call.respond(
-                HttpStatusCode.Unauthorized,
-                mapOf(
-                    "code" to HttpStatusCode.Unauthorized.value,
-                    "message" to "Token is not valid or has expired",
                     "data" to null
                 )
             )
@@ -530,6 +425,19 @@ private fun Route.handleFriend() {
                 "code" to HttpStatusCode.OK.value,
                 "message" to HttpStatusCode.OK.description,
                 "data" to null
+            )
+        )
+    }
+}
+
+private fun Route.handleUidGenerator() {
+    get("$API_V1/generateUid") {
+        call.respond(
+            HttpStatusCode.OK,
+            mapOf(
+                "code" to HttpStatusCode.OK.value,
+                "message" to HttpStatusCode.OK.description,
+                "data" to SnowflakeUtils.snowflake.nextId()
             )
         )
     }

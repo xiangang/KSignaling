@@ -24,7 +24,7 @@ fun Application.configureSecurity() {
                     HttpStatusCode.Unauthorized,
                     mapOf(
                         "code" to HttpStatusCode.Unauthorized.value,
-                        "message" to "Token is not valid or has expired",
+                        "message" to "Token is invalid or has expired",
                         "data" to null
                     )
                 )

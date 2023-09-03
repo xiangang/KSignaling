@@ -2,6 +2,7 @@ package com.nxg.im.core.repository
 
 import com.nxg.im.core.data.entity.Friend
 import com.nxg.im.core.data.entity.FriendTable
+import com.nxg.im.core.data.entity.UserTable
 import com.nxg.im.core.data.entity.toSimpleUser
 import org.jetbrains.exposed.sql.ResultRow
 
@@ -9,8 +10,9 @@ object FriendRepository {
     fun toFriend(row: ResultRow): Friend {
         val user = UserRepository.toUser(row).toSimpleUser()
         return Friend(
-            uuid = user.uuid,
-            username = user.username,
+            userId = row[FriendTable.user_id],
+            friendId = row[FriendTable.friend_id],
+            username = row[UserTable.username],
             email = user.email,
             phone = user.phone,
             nickname = user.nickname,
@@ -29,7 +31,7 @@ object FriendRepository {
             latestDynamic = row[FriendTable.latest_dynamic].toString(),
             isRecommend = row[FriendTable.is_recommend],
             createTime = row[FriendTable.create_time].millis,
-            updateTime =  row[FriendTable.update_time].millis
+            updateTime = row[FriendTable.update_time].millis
         )
     }
 }

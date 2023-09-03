@@ -4,6 +4,7 @@ import com.typesafe.config.ConfigFactory
 import io.ktor.server.config.*
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisURI
+import io.lettuce.core.api.StatefulRedisConnection
 import org.joda.time.LocalDateTime
 
 object KSignalingRedisClient {
@@ -14,6 +15,9 @@ object KSignalingRedisClient {
         val password = config.property("ktor.redis.password").getString()
         val redisURI = RedisURI.Builder.redis(url, port.toInt()).withPassword(password.toCharArray()).build()
         RedisClient.create(redisURI)
+    }
+   val redisClientConnection: StatefulRedisConnection<String, String> by lazy {
+       redisClient.connect()
     }
 
     fun start() {

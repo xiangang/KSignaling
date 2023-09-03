@@ -1,5 +1,6 @@
 package com.nxg.im.core.plugins
 
+import com.google.protobuf.ByteString
 import com.nxg.im.core.IMCoreMessage
 import com.nxg.im.core.session.IMSession
 import com.nxg.im.core.session.IMSessionManager
@@ -19,7 +20,6 @@ import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
-import io.lettuce.core.RedisFuture
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -28,7 +28,6 @@ import kotlinx.serialization.protobuf.*
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 
-@OptIn(ExperimentalSerializationApi::class)
 fun Application.configureSockets() {
     install(WebSockets) {
         pingPeriod = Duration.ofSeconds(15)
@@ -50,91 +49,95 @@ fun Application.configureSockets() {
                 close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Invalid token"))
                 return@webSocket
             }
-            println("Adding chat user $user!")
+            println("WebSocket connection add chat user $user!")
             val imSession = IMSession(user, this)
             IMSessionManager.sessions[user.uuid] = imSession
+            try {
+                incoming.consumeEach { frame ->
+                    when (frame) {
+                        is Frame.Close -> {
+                            println("WebSocket Removing $imSession!")
+                            IMSessionManager.sessions.remove(user.uuid)
+                            println("WebSocket connection opened")
+                        }
 
-            for (frame in incoming) {
-                when (frame) {
-                    is Frame.Binary -> {
-                        val receivedBytes = frame.readBytes()
-                        println("chat receivedBytes $receivedBytes")
-                        val imCoreMessage = IMCoreMessage.parseFrom(receivedBytes)
-                        println("chat imCoreMessage $imCoreMessage")
-                        try {
-                            //bodyData存的是json
-                            val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
-                            println("chat imMessageJson $imMessageJson")
-                            val imMessage: IMMessage = imMessageJson.parseIMMessage()
-                            println("chat ${user.username} send $imMessageJson to ${imMessage.toId}")
-                            //TODO 消息去重
+                        is Frame.Ping -> {
+                            println("WebSocket connection Ping $imSession")
+                            // 在这里处理客户端掉线的情况
+                        }
 
-                            //保存聊天记录，一旦落库，就认为消息接收成功，此时可以发送ACK给发送方客户端
-                            val messageId = MessageRepository.save(imMessage)
-                            //发送acknowledge(protobuf)给fromId
-                            val imCoreMessageACK = IMCoreMessage.newBuilder().apply {
-                                version = imCoreMessage.version
-                                cmd = imCoreMessage.cmd
-                                subCmd = imCoreMessage.subCmd
-                                type = 1 // 1是acknowledge
-                                logId = imCoreMessage.logId
-                                seqId = imCoreMessage.seqId
-                                bodyLen = imCoreMessage.bodyLen
-                                bodyData = imCoreMessage.bodyData
-                            }.build()
-                            IMSessionManager.sendMsg2User(imMessage.fromId, imCoreMessageACK.toByteArray())
-                            //发送notify(protobuf)给toId
-                            val imCoreMessageNotify = IMCoreMessage.newBuilder().apply {
-                                version = imCoreMessage.version
-                                cmd = imCoreMessage.cmd
-                                subCmd = imCoreMessage.subCmd
-                                type = 2 //2是notify
-                                logId = imCoreMessage.logId
-                                seqId = imCoreMessage.seqId
-                                bodyLen = imCoreMessage.bodyLen
-                                bodyData = imCoreMessage.bodyData
-                            }.build()
-                            if (!IMSessionManager.sendMsg2User(imMessage.toId, imCoreMessageNotify.toByteArray())) {
-                                // 发送失败则使用redis存储离线消息
-                                val connection = KSignalingRedisClient.redisClient.connect()
-                                val redisCommands = connection.sync()
-                                println("chat redis cache $messageId")
-                                redisCommands.lpush(
-                                    "offline:${imMessage.toId}",
-                                    String(imCoreMessageNotify.toByteArray(), StandardCharsets.ISO_8859_1)
-                                )
-                                // 关闭连接
-                                connection.close()
+                        is Frame.Pong -> {
+                            println("WebSocket connection Pong $imSession")
+                            // 在这里处理客户端掉线的情况
+                        }
+
+                        is Frame.Binary -> {
+                            val receivedBytes = frame.readBytes()
+                            println("WebSocket chat receivedBytes $receivedBytes")
+                            val imCoreMessage = IMCoreMessage.parseFrom(receivedBytes)
+                            println("WebSocket chat imCoreMessage $imCoreMessage")
+                            try {
+                                //bodyData存的是json
+                                val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
+                                println("WebSocket chat imMessageJson $imMessageJson")
+                                val imMessage: IMMessage = imMessageJson.parseIMMessage()
+                                println("WebSocket chat ${user.username} send $imMessageJson to ${imMessage.toId}")
+                                //TODO 消息去重
+                                //保存聊天记录，一旦落库，就认为消息接收成功，此时可以发送ACK给发送方客户端
+                                val uuid = MessageRepository.save(imMessage)
+                                //发送acknowledge(protobuf)给fromId
+                                val body = imCoreMessage.bodyData.toByteArray()
+                                val imCoreMessageACK = IMCoreMessage.newBuilder().apply {
+                                    version = imCoreMessage.version
+                                    cmd = imCoreMessage.cmd
+                                    subCmd = imCoreMessage.subCmd
+                                    type = 1 // 1是acknowledge
+                                    logId = imCoreMessage.logId
+                                    seqId = imCoreMessage.seqId
+                                    bodyLen = body.size
+                                    bodyData = ByteString.copyFrom(body)
+                                }.build()
+                                IMSessionManager.sendMsg2User(imMessage.fromId, imCoreMessageACK.toByteArray())
+                                //发送notify(protobuf)给toId
+                                val imCoreMessageNotify = IMCoreMessage.newBuilder().apply {
+                                    version = imCoreMessage.version
+                                    cmd = imCoreMessage.cmd
+                                    subCmd = imCoreMessage.subCmd
+                                    type = 2 //2是notify
+                                    logId = imCoreMessage.logId
+                                    seqId = imCoreMessage.seqId
+                                    bodyLen = body.size
+                                    bodyData = ByteString.copyFrom(body)
+                                }.build()
+                                // 发送给接收方用户失败则使用redis存储离线消息
+                                if (!IMSessionManager.sendMsg2User(imMessage.toId, imCoreMessageNotify.toByteArray())) {
+                                    val redisCommands = KSignalingRedisClient.redisClientConnection.sync()
+                                    println("WebSocket chat redis cache uuid $uuid")
+                                    redisCommands.zadd(
+                                        "offline:${imMessage.toId}-${imMessage.fromId}",
+                                        imMessage.timestamp.toDouble(),
+                                        String(imCoreMessageNotify.toByteArray(), StandardCharsets.ISO_8859_1)
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                println("WebSocket chat ${e.message}")
                             }
-                        } catch (e: Exception) {
-                            println("chat ${e.message}")
                         }
-                    }
 
-                    is Frame.Text -> {
-                        val receivedText = frame.readText()
-                        println("chat receivedText $receivedText")
-                        try {
-                            val imMessage: IMMessage = receivedText.parseIMMessage()
-                            println("chat imMessage ${imMessage.toJson()} ")
-                            println("chat ${user.username} send $receivedText to ${imMessage.toId}")
-                            //保存聊天记录
-                            MessageRepository.save(imMessage)
-                            //websocket通知相关用户
-                            IMSessionManager.sendMsg2User(imMessage.toId, receivedText)
-                        } catch (e: Exception) {
-                            println("chat ${e.message}")
+                        is Frame.Text -> {
+                            val receivedText = frame.readText()
+                            println("WebSocket chat receivedText $receivedText")
                         }
-                    }
 
-                    else -> {
-                        continue
                     }
                 }
-
+            } catch (e: ClosedReceiveChannelException) {
+                println("WebSocket exception ${e.message}")
+            } finally {
+                // 连接关闭时，从映射中删除 imSession 对象
+                println("WebSocket remove chat user $user!")
+                IMSessionManager.sessions.remove(user.uuid)
             }
-            println("Removing $imSession!")
-            IMSessionManager.sessions.remove(user.uuid)
 
         }
         //房间管理
