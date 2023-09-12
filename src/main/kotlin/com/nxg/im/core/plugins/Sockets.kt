@@ -268,12 +268,13 @@ private suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
                 val score = java.lang.Double.longBitsToDouble(imCoreMessage.seqId)
                 LOGGER.info("handleReceivedChatBytes score $score")
                 val key = "offline:${imMessage.toId}-${imMessage.fromId}"
-                redisCommands.zadd(
+                val number = redisCommands.zadd(
                     key,
                     score,
                     String(imCoreMessageNotify.toByteArray(), StandardCharsets.ISO_8859_1)
                 )
                 redisCommands.expire(key, Duration.ofDays(7))//7天过期
+                LOGGER.info("handleReceivedChatBytes redis add key $key, score $score, number $number")
             }
         }
 

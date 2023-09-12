@@ -207,17 +207,16 @@ private fun Route.handleOfflineMsg() {
         // 从Redis获取离线消息
         try {
             val offset = pageIndex * limit
-            val min = java.lang.Double.longBitsToDouble(messageId.toLong())
+            val min = java.lang.Double.longBitsToDouble(messageId.toLong() + 1)
             val redisCommands = KSignalingRedisClient.redisClientConnection.sync()
             val key = "offline:${user.uuid}-$fromId"
             LOGGER.info("offlineMessages: key $key, min $min, offset $offset, limit $limit")
-            LOGGER.info("offlineMessages: min $min")
             val offlineMessages = redisCommands.zrangebyscore(
                 key,
                 Range.create(min, Long.MAX_VALUE),
                 Limit.create(offset.toLong(), limit.toLong())
             )
-            val count = redisCommands.zcount(key, Range.create(min, Long.MAX_VALUE))
+            val count = redisCommands.zcount(key, Range.create(min, Long.MAX_VALUE).gt(min))
             LOGGER.info("offlineMessages: count $count")
             val messages = mutableListOf<String>()
             offlineMessages.forEach {
