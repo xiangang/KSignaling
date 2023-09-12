@@ -14,7 +14,7 @@ import java.net.InetAddress
 
 fun main() {
     val ip = InetAddress.getLocalHost().hostAddress
-    println("KSignaling IP：$ip")
+     LOGGER.info("KSignaling IP：$ip")
     KSignalingDatabase.database
     KSignalingRedisClient.start()
     transaction {
@@ -30,7 +30,7 @@ fun main() {
 fun Application.module() {
     configureSecurity()
     configureHTTP()
-    configureMonitoring()
+    configureCallLogging()
     configureSerialization()
     configureSockets()
     configureRouting()

@@ -5,6 +5,7 @@ import com.nxg.im.core.data.bean.TextMessage
 import com.nxg.im.core.data.bean.TextMsgContent
 import com.nxg.im.core.data.bean.parseIMMessage
 import com.nxg.im.core.data.bean.toJson
+import com.nxg.im.core.plugins.LOGGER
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.server.testing.*
@@ -32,7 +33,7 @@ class ApplicationTest {
 
     @Test
     fun testIMMessage() = testApplication {
-        println("testIMMessage")
+         LOGGER.info("testIMMessage")
         val textMessage = TextMessage(
             51691563050860544,
             51691563610275840,
@@ -40,69 +41,69 @@ class ApplicationTest {
             TextMsgContent("123"),
             System.currentTimeMillis()
         ).toJson()
-        println("textMessage: $textMessage")
-        println("textMessage: ${textMessage.parseIMMessage()}")
-        println("textMessage: ${textMessage.parseIMMessage().toJson()}")
+         LOGGER.info("textMessage: $textMessage")
+         LOGGER.info("textMessage: ${textMessage.parseIMMessage()}")
+         LOGGER.info("textMessage: ${textMessage.parseIMMessage().toJson()}")
     }
 
     @Test
     fun testSignaling() = testApplication {
-        println("testSignaling")
-        println("")
+         LOGGER.info("testSignaling")
+         LOGGER.info("")
         val toUser = listOf(SignalingUser(2, 51691563610275840, "xiangang", "福田大飞机"))
-        println(Gson().toJson(Signaling(ADD_FRIEND_INVITE, toUser, true, "", 1000, System.currentTimeMillis(), "")))
+         LOGGER.info(Gson().toJson(Signaling(ADD_FRIEND_INVITE, toUser, true, "", 1000, System.currentTimeMillis(), "")))
     }
 
     @Test
     fun testSipMessage() = testApplication {
-        println("testSipMessage")
-        println("")
-        println(
+         LOGGER.info("testSipMessage")
+         LOGGER.info("")
+         LOGGER.info(
             SipMessage.createRequest(
                 SipMethod.INVITE,
                 "sip:1@192.168.1.5",
                 "sip:1@192.168.1.5",
                 "sip:2@192.168.1.5"
-            )
+            ).toString()
         )
-        println("")
-        println(
+         LOGGER.info("")
+         LOGGER.info(
             SipMessage.createRequest(
                 SipMethod.ACK,
                 "sip:1@192.168.1.5",
                 "sip:1@192.168.1.5",
                 "sip:2@192.168.1.5"
-            )
+            ).toString()
         )
-        println("")
-        println(
+         LOGGER.info("")
+         LOGGER.info(
             SipMessage.createRequest(
                 SipMethod.CANCEL,
                 "sip:1@192.168.1.5",
                 "sip:1@192.168.1.5",
                 "sip:2@192.168.1.5"
-            )
+            ).toString()
         )
-        println("")
-        println(
+         LOGGER.info("")
+         LOGGER.info(
             SipMessage.createRequest(
                 SipMethod.BYE,
                 "sip:1@192.168.1.5",
                 "sip:1@192.168.1.5",
                 "sip:2@192.168.1.5"
-            )
+            ).toString()
         )
-        println("")
-        println(
+         LOGGER.info("")
+         LOGGER.info(
             SipMessage.createRequest(
                 SipMethod.BYE,
                 "sip:1@192.168.1.5",
                 "sip:1@192.168.1.5",
                 "sip:2@192.168.1.5"
-            )
+            ).toString()
         )
-        println("")
-        println(
+         LOGGER.info("")
+         LOGGER.info(
             SipMessage.createResponse(
                 SipMessage.createRequest(
                     SipMethod.BYE,
@@ -110,8 +111,8 @@ class ApplicationTest {
                     "sip:1@192.168.1.5",
                     "sip:2@192.168.1.5"
                 ), SipStatus.OK
-            )
+            ).toString()
         )
-        println("")
+         LOGGER.info("")
     }
 }

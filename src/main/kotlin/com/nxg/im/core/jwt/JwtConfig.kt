@@ -5,8 +5,10 @@ import com.auth0.jwt.JWTVerifier
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
 import com.nxg.im.core.data.entity.User
+import com.nxg.im.core.plugins.LOGGER
 import com.nxg.im.core.repository.UserRepository
 import com.nxg.im.core.utils.HoconUtils
+import java.time.Duration
 import java.util.*
 
 object JwtConfig {
@@ -15,7 +17,6 @@ object JwtConfig {
     private val issuer = config.property("ktor.jwt.issuer").getString()
     private val audience = config.property("ktor.jwt.audience").getString()
     val realm = config.property("ktor.jwt.realm").getString()
-    private const val validityInMs = 3600 * 1000 * 10 // 10 hours
     private val algorithm = Algorithm.HMAC256(secret)
 
     val verifier: JWTVerifier = JWT
@@ -29,22 +30,22 @@ object JwtConfig {
         //.withAudience(audience) //暂时没有必要，尽量缩短token长度
         //.withIssuer(issuer)
         //.withClaim("username", user.username)
-        .withExpiresAt(Date(System.currentTimeMillis() + validityInMs))
+        .withExpiresAt(Date(System.currentTimeMillis() + Duration.ofDays(60).toMillis()))//60天过期
         .sign(algorithm)
 
     fun getUserByToken(token: String): User? {
         try {
-            println("isValidToken token $token")
+             LOGGER.info("isValidToken token $token")
             val jwt = verifier.verify(token)
             if (jwt.expiresAt == null) {
-                println("isValidToken token expired")
+                 LOGGER.info("isValidToken token expired")
                 return null
             }
             val uuid = jwt.subject
-            println("isValidToken uuid $uuid")
+             LOGGER.info("isValidToken uuid $uuid")
             return UserRepository.findByUUId(uuid.toLong())
         } catch (e: JWTVerificationException) {
-            println("isValidToken ${e.message}")
+             LOGGER.info("isValidToken ${e.message}")
         }
         return null
     }

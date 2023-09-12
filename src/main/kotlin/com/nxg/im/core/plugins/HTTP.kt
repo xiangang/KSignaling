@@ -1,19 +1,14 @@
 package com.nxg.im.core.plugins
 
 import com.nxg.im.core.IMCoreMessage
-import com.nxg.im.core.session.IMSessionManager
 import com.nxg.im.core.data.db.KSignalingDatabase
 import com.nxg.im.core.jwt.JwtConfig
 import com.nxg.im.core.repository.UserRepository
 import com.nxg.im.core.signaling.SignalingManager
-import com.nxg.im.core.data.bean.IMMessage
 import com.nxg.im.core.data.bean.OfflineMsg
-import com.nxg.im.core.data.bean.parseIMMessage
-import com.nxg.im.core.data.bean.toJson
 import com.nxg.im.core.data.entity.*
 import com.nxg.im.core.data.redis.KSignalingRedisClient
 import com.nxg.im.core.repository.FriendRepository
-import com.nxg.im.core.repository.MessageRepository
 import com.nxg.im.core.utils.PasswordUtils
 import com.nxg.im.core.utils.PasswordUtils.hashPassword
 import com.nxg.im.core.utils.PasswordUtils.verifyPassword
@@ -25,9 +20,12 @@ import io.ktor.server.plugins.defaultheaders.*
 import io.ktor.server.plugins.compression.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
+import io.ktor.server.plugins.openapi.*
+import io.ktor.server.plugins.swagger.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.util.pipeline.*
+import io.lettuce.core.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.jodatime.CurrentDateTime
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -42,6 +40,7 @@ fun Application.configureHTTP() {
         allowMethod(HttpMethod.Put)
         allowMethod(HttpMethod.Delete)
         allowMethod(HttpMethod.Patch)
+        allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
         allowHeader("KSignaling")
         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
@@ -63,6 +62,8 @@ fun Application.configureHTTP() {
     }
 
     routing {
+        openAPI(path = "openapi", swaggerFile = "openapi/documentation.yaml")
+        swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
         post("$API_V1/register") {
             val request = call.receive<RegisterRequest>()
             val user = UserRepository.findByUsername(request.username)
@@ -135,8 +136,6 @@ fun Application.configureHTTP() {
 
             handleFriend()
 
-            handleChat()
-
             handleOfflineMsg()
 
         }
@@ -180,8 +179,9 @@ private fun Route.handleOfflineMsg() {
             return@get
         }
         val pageIndex = call.parameters["pageIndex"]?.toInt() ?: 0
-        val pageSize = call.parameters["pageSize"]?.toInt() ?: 10
+        val limit = call.parameters["pageSize"]?.toInt() ?: 20
         val fromId = call.parameters["fromId"]
+        val messageId = call.parameters["messageId"]
         if (fromId.isNullOrEmpty()) {
             call.respond(
                 HttpStatusCode.BadRequest,
@@ -193,32 +193,46 @@ private fun Route.handleOfflineMsg() {
             )
             return@get
         }
+        if (messageId.isNullOrEmpty()) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                mapOf(
+                    "code" to HttpStatusCode.BadRequest.value,
+                    "message" to "Missing messageId parameter",
+                    "data" to null
+                )
+            )
+            return@get
+        }
         // 从Redis获取离线消息
         try {
-            val start = pageIndex * pageSize
-            val end = start + pageSize
+            val offset = pageIndex * limit
+            val min = java.lang.Double.longBitsToDouble(messageId.toLong())
             val redisCommands = KSignalingRedisClient.redisClientConnection.sync()
             val key = "offline:${user.uuid}-$fromId"
-            println("offlineMessages: key  $key")
-            val offlineMessages = redisCommands.zrange(key, start.toLong(), end.toLong())
-            val total = redisCommands.zcard(key)
-            println("offlineMessages: total $total")
-            println("offlineMessages: $offlineMessages ${offlineMessages.size}")
+            LOGGER.info("offlineMessages: key $key, min $min, offset $offset, limit $limit")
+            LOGGER.info("offlineMessages: min $min")
+            val offlineMessages = redisCommands.zrangebyscore(
+                key,
+                Range.create(min, Long.MAX_VALUE),
+                Limit.create(offset.toLong(), limit.toLong())
+            )
+            val count = redisCommands.zcount(key, Range.create(min, Long.MAX_VALUE))
+            LOGGER.info("offlineMessages: count $count")
             val messages = mutableListOf<String>()
-            val offlineMsg = OfflineMsg(total, messages)
             offlineMessages.forEach {
                 val imCoreMessage = IMCoreMessage.parseFrom(it.toByteArray(StandardCharsets.ISO_8859_1))
                 val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
-                println("offlineMessages: imMessageJson $imMessageJson")
+                LOGGER.info("offlineMessages: imMessageJson $imMessageJson")
                 messages.add(it)
             }
-            println("offlineMessages: messages $messages")
+            LOGGER.info("offlineMessages: messages $messages")
             call.respond(
                 HttpStatusCode.OK,
                 mapOf(
                     "code" to HttpStatusCode.OK.value,
                     "message" to "Success",
-                    "data" to offlineMsg
+                    "data" to OfflineMsg(count, messages)
                 )
             )
         } catch (e: Exception) {
@@ -232,45 +246,6 @@ private fun Route.handleOfflineMsg() {
                 )
             )
         }
-    }
-}
-
-private fun Route.handleChat() {
-    //发送聊天信息
-    post("$API_V1/sendChatMsg") {
-        val user = getUserByAuthorization()
-        if (user == null) {
-            respondUnauthorized()
-            return@post
-        }
-        val parameters = call.receiveParameters()
-        parameters["content"]?.let {
-            val imMessage: IMMessage = it.parseIMMessage()
-            println("chat imMessage ${imMessage.toJson()} ")
-            println("chat ${user.username} send $it to ${imMessage.toId} ")
-            //保存聊天记录
-            MessageRepository.save(imMessage)
-            //websocket通知相关用户
-            IMSessionManager.sendMsg2User(imMessage.toId, it)
-            call.respond(
-                HttpStatusCode.OK,
-                mapOf(
-                    "code" to HttpStatusCode.OK.value,
-                    "message" to HttpStatusCode.OK.description,
-                    "data" to null
-                )
-            )
-            return@post
-        }
-        call.respond(
-            HttpStatusCode.Unauthorized,
-            mapOf(
-                "code" to HttpStatusCode.NoContent.value,
-                "message" to HttpStatusCode.NoContent.description,
-                "data" to null
-            )
-        )
-
     }
 }
 

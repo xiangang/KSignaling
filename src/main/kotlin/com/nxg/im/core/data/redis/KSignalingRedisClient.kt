@@ -1,5 +1,6 @@
 package com.nxg.im.core.data.redis
 
+import com.nxg.im.core.plugins.LOGGER
 import com.typesafe.config.ConfigFactory
 import io.ktor.server.config.*
 import io.lettuce.core.RedisClient
@@ -28,9 +29,9 @@ object KSignalingRedisClient {
         val startTime = connection.sync().get("start_time")
         val startTimeJoda = connection.sync().get("start_time_joda")
         val startTimeJava = connection.sync().get("start_time_java")
-        println("start_time: $startTime")
-        println("start_time_joda: $startTimeJoda")
-        println("start_time_java: $startTimeJava")
+         LOGGER.info("start_time: $startTime")
+         LOGGER.info("start_time_joda: $startTimeJoda")
+         LOGGER.info("start_time_java: $startTimeJava")
         connection.close()
     }
 }
