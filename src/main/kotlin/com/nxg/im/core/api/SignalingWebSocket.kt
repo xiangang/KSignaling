@@ -1,6 +1,7 @@
 package com.nxg.im.core.api
 
-import com.nxg.im.core.jwt.JwtConfig
+import com.nxg.im.core.plugins.LOGGER
+import com.nxg.im.core.plugins.getUserByAuthorization
 import com.nxg.im.core.signaling.Signaling
 import com.nxg.im.core.signaling.SignalingManager
 import com.nxg.im.core.signaling.SignalingSession
@@ -12,17 +13,12 @@ import kotlinx.serialization.json.Json
 fun Route.signalingWebSocket() {
     //信令管理
     webSocket("/signaling") {
-        val token = call.request.headers["Authorization"]
-        if (token == null) {
-            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Token is null"))
-            return@webSocket
-        }
-        val user = JwtConfig.getUserByToken(token)
+        val user = getUserByAuthorization()
         if (user == null) {
-            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Invalid token"))
+            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Token is invalid or has expired"))
             return@webSocket
         }
-        com.nxg.im.core.plugins.LOGGER.info("Adding push user $user!")
+        LOGGER.info("signalingWebSocket push user $user!")
         // 将 SignalingSession 对象与用户 ID 相关联
         val newSignalingSession = SignalingSession(user, this)
         SignalingManager.sessions[user.uuid] = newSignalingSession
@@ -33,17 +29,17 @@ fun Route.signalingWebSocket() {
             if (frame is Frame.Text) {
                 val text = frame.readText()
                 if (text.equals("bye", ignoreCase = true)) {
-                    close(CloseReason(CloseReason.Codes.NORMAL, "Client said BYE"))
+                    close(CloseReason(CloseReason.Codes.NORMAL, "signalingWebSocket Client said BYE"))
                 }
                 try {
                     val signaling = Json.decodeFromString(Signaling.serializer(), text)
-                    com.nxg.im.core.plugins.LOGGER.info("signaling")
+                    LOGGER.info("signalingWebSocket")
                     for (signalingUser in signaling.toUsers) {
-                        com.nxg.im.core.plugins.LOGGER.info("signaling ${user.username} send $text to ${signalingUser.username} ")
+                        LOGGER.info("signalingWebSocket ${user.username} send $text to ${signalingUser.username} ")
                         SignalingManager.sendMsg2User(signalingUser.uuid, text)
                     }
                 } catch (e: Exception) {
-                    com.nxg.im.core.plugins.LOGGER.info("signaling error ${e.message}")
+                    LOGGER.info("signalingWebSocket error ${e.message}")
                 }
             }
         }

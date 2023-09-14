@@ -4,6 +4,7 @@ import com.nxg.im.core.IMCoreMessage
 import com.nxg.im.core.data.bean.OfflineMsg
 import com.nxg.im.core.data.redis.KSignalingRedisClient
 import com.nxg.im.core.plugins.getUserByAuthorization
+import com.nxg.im.core.plugins.LOGGER
 import com.nxg.im.core.plugins.respondUnauthorized
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -53,22 +54,22 @@ fun Route.offlineMsgAPI() {
             val min = java.lang.Double.longBitsToDouble(messageId.toLong() + 1)
             val redisCommands = KSignalingRedisClient.redisClientConnection.sync()
             val key = "offline:${user.uuid}-$fromId"
-            com.nxg.im.core.plugins.LOGGER.info("offlineMessages: key $key, min $min, offset $offset, limit $limit")
+            LOGGER.info("offlineMessages: key $key, min $min, offset $offset, limit $limit")
             val offlineMessages = redisCommands.zrangebyscore(
                 key,
                 Range.create(min, Long.MAX_VALUE),
                 Limit.create(offset.toLong(), limit.toLong())
             )
             val count = redisCommands.zcount(key, Range.create(min, Long.MAX_VALUE).gt(min))
-            com.nxg.im.core.plugins.LOGGER.info("offlineMessages: count $count")
+            LOGGER.info("offlineMessages: count $count")
             val messages = mutableListOf<String>()
             offlineMessages.forEach {
                 val imCoreMessage = IMCoreMessage.parseFrom(it.toByteArray(StandardCharsets.ISO_8859_1))
                 val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
-                com.nxg.im.core.plugins.LOGGER.info("offlineMessages: imMessageJson $imMessageJson")
+                LOGGER.info("offlineMessages: imMessageJson $imMessageJson")
                 messages.add(it)
             }
-            com.nxg.im.core.plugins.LOGGER.info("offlineMessages: messages $messages")
+            LOGGER.info("offlineMessages: messages $messages")
             call.respond(
                 HttpStatusCode.OK,
                 mapOf(

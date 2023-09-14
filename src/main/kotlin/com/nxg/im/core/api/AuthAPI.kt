@@ -24,7 +24,7 @@ fun Route.authAPI(){
         val user = com.nxg.im.core.repository.UserRepository.findByUsername(request.username)
         if (user != null) {
             call.respond(
-                io.ktor.http.HttpStatusCode.BadRequest,
+                HttpStatusCode.BadRequest,
                 mapOf(
                     "code" to HttpStatusCode.BadRequest.value,
                     "message" to "Username already exists",
@@ -46,7 +46,7 @@ fun Route.authAPI(){
             )
             com.nxg.im.core.repository.UserRepository.save(newUser)
             call.respond(
-                io.ktor.http.HttpStatusCode.OK,
+                HttpStatusCode.OK,
                 mapOf(
                     "code" to HttpStatusCode.OK.value,
                     "message" to HttpStatusCode.OK.description,
@@ -65,7 +65,7 @@ fun Route.authAPI(){
             )
         ) {
             call.respond(
-                io.ktor.http.HttpStatusCode.Unauthorized,
+                HttpStatusCode.Unauthorized,
                 mapOf(
                     "code" to HttpStatusCode.Unauthorized.value,
                     "message" to "Invalid username or password",
@@ -75,7 +75,7 @@ fun Route.authAPI(){
         } else {
             val token = com.nxg.im.core.jwt.JwtConfig.generateToken(user)
             call.respond(
-                io.ktor.http.HttpStatusCode.OK,
+                HttpStatusCode.OK,
                 mapOf(
                     "code" to HttpStatusCode.OK.value,
                     "message" to HttpStatusCode.OK.description,

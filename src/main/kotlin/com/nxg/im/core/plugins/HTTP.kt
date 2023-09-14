@@ -16,6 +16,7 @@ import io.ktor.server.plugins.openapi.*
 import io.ktor.server.plugins.swagger.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
+import io.ktor.server.websocket.*
 import io.ktor.util.pipeline.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -91,6 +92,14 @@ suspend fun PipelineContext<*, ApplicationCall>.respondUnauthorized() {
  * 封装处理Authorization获取对应的user
  */
 fun PipelineContext<*, ApplicationCall>.getUserByAuthorization(): User? {
+    val authorization = call.request.headers["Authorization"]
+    val authorizationArray = authorization?.split(" ")
+    if (authorizationArray == null || authorizationArray.size < 2) {
+        return null
+    }
+    return JwtConfig.getUserByToken(authorizationArray[1])
+}
+fun WebSocketServerSession.getUserByAuthorization(): User? {
     val authorization = call.request.headers["Authorization"]
     val authorizationArray = authorization?.split(" ")
     if (authorizationArray == null || authorizationArray.size < 2) {

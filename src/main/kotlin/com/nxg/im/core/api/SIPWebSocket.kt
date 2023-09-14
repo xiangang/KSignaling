@@ -1,7 +1,8 @@
 package com.nxg.im.core.api
 
+import com.nxg.im.core.plugins.getUserByAuthorization
 import com.nxg.im.core.sip.CallSession
-import com.nxg.im.core.sip.callSessionId
+import com.nxg.im.core.sip.SIPSessionManager
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
@@ -10,9 +11,14 @@ import kotlinx.coroutines.channels.consumeEach
 
 fun Route.SIPWebSocket() {
     webSocket("/sip") {
-        val callId = callSessionId()
+        val user = getUserByAuthorization()
+        if (user == null) {
+            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Token is invalid or has expired"))
+            return@webSocket
+        }
+        val callId = user.uuid.toString()
         val callSession = CallSession(callId, this)
-        com.nxg.im.core.session.SIPSessionManager.sipSessions[callId] = callSession
+        SIPSessionManager.sipSessions[callId] = callSession
         try {
             incoming.consumeEach { frame ->
                 if (frame is Frame.Text) {
@@ -23,7 +29,7 @@ fun Route.SIPWebSocket() {
         } catch (e: ClosedReceiveChannelException) {
             // Client disconnected
         } finally {
-            com.nxg.im.core.session.SIPSessionManager.sipSessions.remove(callId)
+            SIPSessionManager.sipSessions.remove(callId)
             callSession.close()
         }
     }

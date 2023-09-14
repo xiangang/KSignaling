@@ -19,7 +19,7 @@ fun Application.configureSockets() {
         masking = false
         contentConverter = KotlinxWebsocketSerializationConverter(ProtoBuf)
     }
-    
+
     routing {
 
         chatWebSocket()
