@@ -99,12 +99,10 @@ fun PipelineContext<*, ApplicationCall>.getUserByAuthorization(): User? {
     }
     return JwtConfig.getUserByToken(authorizationArray[1])
 }
+
 fun WebSocketServerSession.getUserByAuthorization(): User? {
     val authorization = call.request.headers["Authorization"]
-    val authorizationArray = authorization?.split(" ")
-    if (authorizationArray == null || authorizationArray.size < 2) {
-        return null
-    }
-    return JwtConfig.getUserByToken(authorizationArray[1])
+    LOGGER.debug("Authorization: $authorization")
+    return authorization?.let { JwtConfig.getUserByToken(it) }
 }
 

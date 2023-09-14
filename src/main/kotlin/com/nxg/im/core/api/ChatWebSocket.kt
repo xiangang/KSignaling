@@ -28,23 +28,23 @@ import java.time.Duration
 fun Route.chatWebSocket() {
     RabbitMQClient.channel.basicConsume(RabbitMQClient.QUEUE_CHAT, true, object : Consumer {
         override fun handleConsumeOk(consumerTag: String?) {
-           LOGGER.info("RabbitMQClient handleConsumeOk $consumerTag")
+            LOGGER.info("RabbitMQClient handleConsumeOk $consumerTag")
         }
 
         override fun handleCancelOk(consumerTag: String?) {
-           LOGGER.info("RabbitMQClient handleCancelOk $consumerTag")
+            LOGGER.info("RabbitMQClient handleCancelOk $consumerTag")
         }
 
         override fun handleCancel(consumerTag: String?) {
-           LOGGER.info("RabbitMQClient handleCancel $consumerTag")
+            LOGGER.info("RabbitMQClient handleCancel $consumerTag")
         }
 
         override fun handleShutdownSignal(consumerTag: String?, sig: ShutdownSignalException?) {
-           LOGGER.info("RabbitMQClient handleShutdownSignal $consumerTag")
+            LOGGER.info("RabbitMQClient handleShutdownSignal $consumerTag")
         }
 
         override fun handleRecoverOk(consumerTag: String?) {
-           LOGGER.info("RabbitMQClient handleRecoverOk $consumerTag")
+            LOGGER.info("RabbitMQClient handleRecoverOk $consumerTag")
         }
 
         override fun handleDelivery(
@@ -53,7 +53,7 @@ fun Route.chatWebSocket() {
             properties: AMQP.BasicProperties?,
             body: ByteArray?
         ) {
-           LOGGER.info("RabbitMQClient handleDelivery $consumerTag")
+            LOGGER.info("RabbitMQClient handleDelivery $consumerTag")
             body?.let {
                 RabbitMQCoroutineScope.launch {
                     handleReceivedChatBytes(it)
@@ -68,25 +68,25 @@ fun Route.chatWebSocket() {
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Token is invalid or has expired"))
             return@webSocket
         }
-       LOGGER.info("WebSocket connection add chat user $user!")
+        LOGGER.info("WebSocket connection add chat user $user!")
         val imSession = IMSession(user, this)
         IMSessionManager.sessions[user.uuid] = imSession
         try {
             incoming.consumeEach { frame ->
                 when (frame) {
                     is Frame.Close -> {
-                       LOGGER.info("WebSocket Removing $imSession!")
+                        LOGGER.info("WebSocket Removing $imSession!")
                         IMSessionManager.sessions.remove(user.uuid)
-                       LOGGER.info("WebSocket connection opened")
+                        LOGGER.info("WebSocket connection opened")
                     }
 
                     is Frame.Ping -> {
-                       LOGGER.info("WebSocket connection Ping $imSession")
+                        LOGGER.info("WebSocket connection Ping $imSession")
                         // 在这里处理客户端掉线的情况
                     }
 
                     is Frame.Pong -> {
-                       LOGGER.info("WebSocket connection Pong $imSession")
+                        LOGGER.info("WebSocket connection Pong $imSession")
                         // 在这里处理客户端掉线的情况
                     }
 
@@ -102,31 +102,31 @@ fun Route.chatWebSocket() {
 
                     is Frame.Text -> {
                         val receivedText = frame.readText()
-                       LOGGER.info("WebSocket chat receivedText $receivedText")
+                        LOGGER.info("WebSocket chat receivedText $receivedText")
                     }
 
                 }
             }
         } catch (e: ClosedReceiveChannelException) {
-           LOGGER.info("WebSocket exception ${e.message}")
+            LOGGER.info("WebSocket exception ${e.message}")
         } finally {
             // 连接关闭时，从映射中删除 imSession 对象
-           LOGGER.info("WebSocket remove chat user $user!")
+            LOGGER.info("WebSocket remove chat user $user!")
             IMSessionManager.sessions.remove(user.uuid)
         }
     }
 }
 
 suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
-   LOGGER.info("handleReceivedChatBytes receivedBytes $receivedBytes")
+    LOGGER.info("handleReceivedChatBytes receivedBytes $receivedBytes")
     val imCoreMessage = IMCoreMessage.parseFrom(receivedBytes)
-   LOGGER.info("handleReceivedChatBytes imCoreMessage $imCoreMessage")
+    LOGGER.info("handleReceivedChatBytes imCoreMessage $imCoreMessage")
     try {
         //bodyData存的是json
         val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
-       LOGGER.info("handleReceivedChatBytes imMessageJson $imMessageJson")
+        LOGGER.info("handleReceivedChatBytes imMessageJson $imMessageJson")
         val imMessage: IMMessage = imMessageJson.parseIMMessage()
-       LOGGER.info("handleReceivedChatBytes ${imMessage.fromId} send $imMessageJson to ${imMessage.toId}")
+        LOGGER.info("handleReceivedChatBytes ${imMessage.fromId} send $imMessageJson to ${imMessage.toId}")
         //消息去重，避免发送方重复发送
         if (!MessageRepository.isIMMessageExist(imCoreMessage.seqId)) {
             val body = imCoreMessage.bodyData.toByteArray()
@@ -161,13 +161,13 @@ suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
                 }.build()
                 // 发送给接收方用户失败则使用redis存储离线消息(TODO，应该增加ACK确认机制)
                 if (IMSessionManager.sendMsg2User(imMessage.toId, imCoreMessageNotify.toByteArray())) {
-                   LOGGER.info("handleReceivedChatBytes： send to ${imMessage.toId} success")
+                    LOGGER.info("handleReceivedChatBytes： send to ${imMessage.toId} success")
                     return
                 }
                 val redisCommands = KSignalingRedisClient.redisClientConnection.sync()
-               LOGGER.info("handleReceivedChatBytes redis cache uuid ${imCoreMessage.seqId}")
+                LOGGER.info("handleReceivedChatBytes redis cache uuid ${imCoreMessage.seqId}")
                 val score = java.lang.Double.longBitsToDouble(imCoreMessage.seqId)
-               LOGGER.info("handleReceivedChatBytes score $score")
+                LOGGER.info("handleReceivedChatBytes score $score")
                 val key = "offline:${imMessage.toId}-${imMessage.fromId}"
                 val number = redisCommands.zadd(
                     key,
@@ -175,11 +175,11 @@ suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
                     String(imCoreMessageNotify.toByteArray(), StandardCharsets.ISO_8859_1)
                 )
                 redisCommands.expire(key, Duration.ofDays(7))//7天过期
-               LOGGER.info("handleReceivedChatBytes redis add key $key, score $score, number $number")
+                LOGGER.info("handleReceivedChatBytes redis add key $key, score $score, number $number")
             }
         }
 
     } catch (e: Exception) {
-       LOGGER.info("handleReceivedChatBytes ${e.message}")
+        LOGGER.info("handleReceivedChatBytes ${e.message}")
     }
 }

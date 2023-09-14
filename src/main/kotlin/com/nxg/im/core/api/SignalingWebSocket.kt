@@ -22,8 +22,6 @@ fun Route.signalingWebSocket() {
         // 将 SignalingSession 对象与用户 ID 相关联
         val newSignalingSession = SignalingSession(user, this)
         SignalingManager.sessions[user.uuid] = newSignalingSession
-        //val json = Json.encodeToString(SimpleUser.serializer(), user.toSimpleUser())
-        //send(json)
         // 处理从客户端发送的消息
         for (frame in incoming) {
             if (frame is Frame.Text) {

@@ -18,7 +18,7 @@ class UserPrincipal(val user: User) : Principal
 val ApplicationCall.user: User
     get() = authentication.principal<UserPrincipal>()!!.user
 
-fun Route.authAPI(){
+fun Route.authAPI() {
     post("$API_V1/register") {
         val request = call.receive<RegisterRequest>()
         val user = com.nxg.im.core.repository.UserRepository.findByUsername(request.username)

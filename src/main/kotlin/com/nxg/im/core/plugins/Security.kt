@@ -1,5 +1,6 @@
 package com.nxg.im.core.plugins
 
+import com.nxg.im.core.api.UserPrincipal
 import com.nxg.im.core.jwt.JwtConfig
 import com.nxg.im.core.repository.UserRepository
 import io.ktor.http.*
@@ -16,6 +17,7 @@ fun Application.configureSecurity() {
             realm = JwtConfig.realm
             validate { jwtCredential ->
                 val uuid = jwtCredential.payload.subject
+                //todo 使用redis
                 val user = UserRepository.findByUUId(uuid.toLong())
                 user?.let { UserPrincipal(it) }
             }

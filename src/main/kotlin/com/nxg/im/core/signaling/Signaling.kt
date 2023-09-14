@@ -58,4 +58,4 @@ sealed class SignalingPayload() {
 }
 
 @Serializable
-data class SignalingUser(val userId: Long, val uuid: Long, val username: String, val nickname: String)
+data class SignalingUser(val uuid: Long, val username: String, val nickname: String)
