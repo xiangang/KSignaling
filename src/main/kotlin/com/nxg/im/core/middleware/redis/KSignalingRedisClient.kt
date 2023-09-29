@@ -1,4 +1,4 @@
-package com.nxg.im.core.data.redis
+package com.nxg.im.core.middleware.redis
 
 import com.nxg.im.core.plugins.LOGGER
 import com.typesafe.config.ConfigFactory

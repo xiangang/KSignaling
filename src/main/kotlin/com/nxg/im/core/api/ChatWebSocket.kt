@@ -2,16 +2,18 @@ package com.nxg.im.core.api
 
 import com.google.protobuf.ByteString
 import com.nxg.im.core.IMCoreMessage
-import com.nxg.im.core.data.RabbitMQClient
-import com.nxg.im.core.data.RabbitMQCoroutineScope
-import com.nxg.im.core.data.bean.IMMessage
-import com.nxg.im.core.data.bean.parseIMMessage
-import com.nxg.im.core.data.redis.KSignalingRedisClient
+import com.nxg.im.core.middleware.rabbitmq.RabbitMQClient
+import com.nxg.im.core.middleware.rabbitmq.RabbitMQCoroutineScope
+import com.nxg.im.core.data.bean.ChatMessage
+import com.nxg.im.core.data.bean.parseChatMessage
+import com.nxg.im.core.middleware.redis.KSignalingRedisClient
 import com.nxg.im.core.plugins.LOGGER
 import com.nxg.im.core.plugins.getUserByAuthorization
 import com.nxg.im.core.repository.MessageRepository
-import com.nxg.im.core.session.IMSession
-import com.nxg.im.core.session.IMSessionManager
+import com.nxg.im.core.module.session.IMSession
+import com.nxg.im.core.module.session.IMSessionManager
+import com.nxg.im.core.module.signaling.Signaling
+import com.nxg.im.core.module.signaling.parseSignaling
 import com.rabbitmq.client.AMQP
 import com.rabbitmq.client.Consumer
 import com.rabbitmq.client.Envelope
@@ -122,31 +124,85 @@ suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
     val imCoreMessage = IMCoreMessage.parseFrom(receivedBytes)
     LOGGER.info("handleReceivedChatBytes imCoreMessage $imCoreMessage")
     try {
+        val bodyDataJson = imCoreMessage.bodyData.toStringUtf8()
+        LOGGER.info("handleReceivedChatBytes bodyDataJson $bodyDataJson")
         //bodyData存的是json
-        val imMessageJson = imCoreMessage.bodyData.toStringUtf8()
-        LOGGER.info("handleReceivedChatBytes imMessageJson $imMessageJson")
-        val imMessage: IMMessage = imMessageJson.parseIMMessage()
-        LOGGER.info("handleReceivedChatBytes ${imMessage.fromId} send $imMessageJson to ${imMessage.toId}")
-        //消息去重，避免发送方重复发送
-        if (!MessageRepository.isIMMessageExist(imCoreMessage.seqId)) {
-            val body = imCoreMessage.bodyData.toByteArray()
-            //保存聊天记录，一旦落库，就认为消息接收成功，此时可以发送ACK给发送方客户端
-            val id = MessageRepository.save(imCoreMessage.seqId, imMessage)
-            //如果保存成功
-            if (id > 0L) {
+        when (imCoreMessage.cmd) {
+            "chat" -> {
+                val chatMessage: ChatMessage = bodyDataJson.parseChatMessage()
+                LOGGER.info("handleReceivedChatBytes ${chatMessage.fromId} send $bodyDataJson to ${chatMessage.toId}")
+                //消息去重，避免发送方重复发送
+                if (!MessageRepository.isChatMessageExist(imCoreMessage.seqId)) {
+                    val body = imCoreMessage.bodyData.toByteArray()
+                    //保存聊天记录，一旦落库，就认为消息接收成功，此时可以发送ACK给发送方客户端
+                    val id = MessageRepository.save(imCoreMessage.seqId, chatMessage)
+                    //如果保存成功
+                    if (id > 0L) {
+                        //发送acknowledge(protobuf)给fromId
+                        val imCoreMessageACK = IMCoreMessage.newBuilder().apply {
+                            version = imCoreMessage.version
+                            cmd = imCoreMessage.cmd
+                            subCmd = imCoreMessage.subCmd
+                            type = 1 // 1是acknowledge
+                            logId = imCoreMessage.logId
+                            seqId = imCoreMessage.seqId
+                            bodyLen = body.size
+                            bodyData = ByteString.copyFrom(body)
+                        }.build()
+                        //如果发送失败或者没发送给发送方，则发送方认为失败
+                        IMSessionManager.sendMsg2User(chatMessage.fromId, imCoreMessageACK.toByteArray())
+
+                        //发送notify(protobuf)给toId
+                        val imCoreMessageNotify = IMCoreMessage.newBuilder().apply {
+                            version = imCoreMessage.version
+                            cmd = imCoreMessage.cmd
+                            subCmd = imCoreMessage.subCmd
+                            type = 2 //2是notify
+                            logId = imCoreMessage.logId
+                            seqId = imCoreMessage.seqId
+                            bodyLen = body.size
+                            bodyData = ByteString.copyFrom(body)
+                        }.build()
+                        // 发送给接收方用户失败则使用redis存储离线消息(TODO，应该增加ACK确认机制)
+                        if (IMSessionManager.sendMsg2User(chatMessage.toId, imCoreMessageNotify.toByteArray())) {
+                            LOGGER.info("handleReceivedChatBytes： send to ${chatMessage.toId} success")
+                            return
+                        }
+                        val redisCommands = KSignalingRedisClient.redisClientConnection.sync()
+                        LOGGER.info("handleReceivedChatBytes redis cache uuid ${imCoreMessage.seqId}")
+                        val score = java.lang.Double.longBitsToDouble(imCoreMessage.seqId)
+                        LOGGER.info("handleReceivedChatBytes score $score")
+                        val key = "offline:${chatMessage.toId}-${chatMessage.fromId}"
+                        val number = redisCommands.zadd(
+                            key,
+                            score,
+                            String(imCoreMessageNotify.toByteArray(), StandardCharsets.ISO_8859_1)
+                        )
+                        redisCommands.expire(key, Duration.ofDays(7))//7天过期
+                        LOGGER.info("handleReceivedChatBytes redis add key $key, score $score, number $number")
+                    }
+                }
+            }
+
+            "signaling" -> {
+                val signaling: Signaling = bodyDataJson.parseSignaling()
+                LOGGER.info("handleReceivedSignalingBytes ${signaling.fromId} send $bodyDataJson to ${signaling.participants}")
+                val bodyByteArray = imCoreMessage.bodyData.toByteArray()
                 //发送acknowledge(protobuf)给fromId
-                val imCoreMessageACK = IMCoreMessage.newBuilder().apply {
+                IMCoreMessage.newBuilder().apply {
                     version = imCoreMessage.version
                     cmd = imCoreMessage.cmd
                     subCmd = imCoreMessage.subCmd
                     type = 1 // 1是acknowledge
                     logId = imCoreMessage.logId
                     seqId = imCoreMessage.seqId
-                    bodyLen = body.size
-                    bodyData = ByteString.copyFrom(body)
-                }.build()
-                //如果发送失败或者没发送给发送方，则发送方认为失败
-                IMSessionManager.sendMsg2User(imMessage.fromId, imCoreMessageACK.toByteArray())
+                    bodyLen = bodyByteArray.size
+                    bodyData = ByteString.copyFrom(bodyByteArray)
+                }.build().also {
+                    //如果发送失败或者没发送给发送方，则发送方认为失败
+                    LOGGER.info("handleReceivedSignalingBytes ${signaling.fromId} ack to ${signaling.fromId}")
+                    IMSessionManager.sendMsg2User(signaling.fromId, it.toByteArray())
+                }
 
                 //发送notify(protobuf)给toId
                 val imCoreMessageNotify = IMCoreMessage.newBuilder().apply {
@@ -156,28 +212,18 @@ suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
                     type = 2 //2是notify
                     logId = imCoreMessage.logId
                     seqId = imCoreMessage.seqId
-                    bodyLen = body.size
-                    bodyData = ByteString.copyFrom(body)
+                    bodyLen = bodyByteArray.size
+                    bodyData = ByteString.copyFrom(bodyByteArray)
                 }.build()
-                // 发送给接收方用户失败则使用redis存储离线消息(TODO，应该增加ACK确认机制)
-                if (IMSessionManager.sendMsg2User(imMessage.toId, imCoreMessageNotify.toByteArray())) {
-                    LOGGER.info("handleReceivedChatBytes： send to ${imMessage.toId} success")
-                    return
+                signaling.participants.forEach {
+                    if (it != signaling.fromId) {
+                        LOGGER.info("handleReceivedSignalingBytes ${signaling.fromId} send to $it")
+                        IMSessionManager.sendMsg2User(it, imCoreMessageNotify.toByteArray())
+                    }
                 }
-                val redisCommands = KSignalingRedisClient.redisClientConnection.sync()
-                LOGGER.info("handleReceivedChatBytes redis cache uuid ${imCoreMessage.seqId}")
-                val score = java.lang.Double.longBitsToDouble(imCoreMessage.seqId)
-                LOGGER.info("handleReceivedChatBytes score $score")
-                val key = "offline:${imMessage.toId}-${imMessage.fromId}"
-                val number = redisCommands.zadd(
-                    key,
-                    score,
-                    String(imCoreMessageNotify.toByteArray(), StandardCharsets.ISO_8859_1)
-                )
-                redisCommands.expire(key, Duration.ofDays(7))//7天过期
-                LOGGER.info("handleReceivedChatBytes redis add key $key, score $score, number $number")
             }
         }
+
 
     } catch (e: Exception) {
         LOGGER.info("handleReceivedChatBytes ${e.message}")

@@ -1,5 +1,6 @@
 package com.nxg.im.core.api
 
+import com.nxg.im.core.config.jwt.JwtConfig
 import com.nxg.im.core.data.entity.User
 import com.nxg.im.core.data.entity.toSimpleUser
 import com.nxg.im.core.utils.SnowflakeUtils
@@ -73,7 +74,7 @@ fun Route.authAPI() {
                 )
             )
         } else {
-            val token = com.nxg.im.core.jwt.JwtConfig.generateToken(user)
+            val token = JwtConfig.generateToken(user)
             call.respond(
                 HttpStatusCode.OK,
                 mapOf(

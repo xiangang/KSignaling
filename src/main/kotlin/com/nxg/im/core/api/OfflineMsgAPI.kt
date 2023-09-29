@@ -2,7 +2,7 @@ package com.nxg.im.core.api
 
 import com.nxg.im.core.IMCoreMessage
 import com.nxg.im.core.data.bean.OfflineMsg
-import com.nxg.im.core.data.redis.KSignalingRedisClient
+import com.nxg.im.core.middleware.redis.KSignalingRedisClient
 import com.nxg.im.core.plugins.getUserByAuthorization
 import com.nxg.im.core.plugins.LOGGER
 import com.nxg.im.core.plugins.respondUnauthorized

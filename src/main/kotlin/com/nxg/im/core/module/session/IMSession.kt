@@ -1,4 +1,4 @@
-package com.nxg.im.core.session
+package com.nxg.im.core.module.session
 
 import com.nxg.im.core.data.entity.User
 import io.ktor.websocket.*

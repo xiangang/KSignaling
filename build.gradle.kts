@@ -24,13 +24,20 @@ group = "com.nxg"
 version = "0.0.1"
 application {
     mainClass.set("com.nxg.ApplicationKt")
-
     val isDevelopment: Boolean = project.ext.has("development")
+    println("isDevelopment $isDevelopment")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
 }
 
 repositories {
     mavenCentral()
+    maven {
+        setUrl("http://192.168.1.5:8081/repository/maven-third-party/")
+        isAllowInsecureProtocol = true
+    }
+    maven {
+        setUrl("https://192.168.1.5:8443/repository/maven-third-party/")
+    }
 }
 
 dependencies {
@@ -69,6 +76,7 @@ dependencies {
     implementation("io.lettuce:lettuce-core:6.2.4.RELEASE")
     testImplementation("io.ktor:ktor-server-tests-jvm:$ktor_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+    implementation("com.nxg:combine-third-party:1.0.2")
 }
 
 protobuf {

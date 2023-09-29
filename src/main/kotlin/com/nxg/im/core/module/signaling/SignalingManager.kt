@@ -1,4 +1,4 @@
-package com.nxg.im.core.signaling
+package com.nxg.im.core.module.signaling
 
 import io.ktor.websocket.*
 

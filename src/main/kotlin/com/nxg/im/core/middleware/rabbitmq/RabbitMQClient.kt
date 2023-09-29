@@ -1,4 +1,4 @@
-package com.nxg.im.core.data
+package com.nxg.im.core.middleware.rabbitmq
 
 import com.nxg.im.core.plugins.LOGGER
 import com.rabbitmq.client.BuiltinExchangeType

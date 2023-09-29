@@ -3,17 +3,18 @@ package com.nxg
 import com.google.gson.Gson
 import com.nxg.im.core.data.bean.TextMessage
 import com.nxg.im.core.data.bean.TextMsgContent
-import com.nxg.im.core.data.bean.parseIMMessage
+import com.nxg.im.core.data.bean.parseChatMessage
 import com.nxg.im.core.data.bean.toJson
+import com.nxg.im.core.module.signaling.SignalingUser
 import com.nxg.im.core.plugins.LOGGER
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.server.testing.*
 import kotlin.test.*
 import io.ktor.http.*
-import com.nxg.im.core.sip.SipMessage
-import com.nxg.im.core.sip.SipMethod
-import com.nxg.im.core.sip.SipStatus
+import com.nxg.im.core.module.sip.SipMessage
+import com.nxg.im.core.module.sip.SipMethod
+import com.nxg.im.core.module.sip.SipStatus
 import com.nxg.im.core.plugins.configureRouting
 import com.nxg.im.core.signaling.*
 
@@ -40,8 +41,8 @@ class ApplicationTest {
             System.currentTimeMillis()
         ).toJson()
         LOGGER.info("textMessage: $textMessage")
-        LOGGER.info("textMessage: ${textMessage.parseIMMessage()}")
-        LOGGER.info("textMessage: ${textMessage.parseIMMessage().toJson()}")
+        LOGGER.info("textMessage: ${textMessage.parseChatMessage()}")
+        LOGGER.info("textMessage: ${textMessage.parseChatMessage().toJson()}")
     }
 
     @Test
@@ -50,10 +51,6 @@ class ApplicationTest {
         LOGGER.info("")
         val caller = listOf(SignalingUser(53069998221033472, "xiangang", "贤钢"))
         val callee = listOf(SignalingUser(53069999762046976, "yanyan", "燕燕"))
-        LOGGER.info(Gson().toJson(Signaling(VIDEO_CALL_INVITE, callee, true, "", 1000, System.currentTimeMillis(), "")))
-        LOGGER.info(Gson().toJson(Signaling(VIDEO_CALL_CANCEL, caller, true, "", 1000, System.currentTimeMillis(), "")))
-        LOGGER.info(Gson().toJson(Signaling(VIDEO_CALL_ANSWER, callee, true, "", 1000, System.currentTimeMillis(), "")))
-        LOGGER.info(Gson().toJson(Signaling(VIDEO_CALL_HANGUP, caller, true, "", 1000, System.currentTimeMillis(), "")))
     }
 
     @Test

@@ -1,7 +1,7 @@
 package com.nxg.im.core.plugins
 
 import com.nxg.im.core.api.UserPrincipal
-import com.nxg.im.core.jwt.JwtConfig
+import com.nxg.im.core.config.jwt.JwtConfig
 import com.nxg.im.core.repository.UserRepository
 import io.ktor.http.*
 import io.ktor.server.application.*

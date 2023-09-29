@@ -1,4 +1,4 @@
-package com.nxg.im.core.jwt
+package com.nxg.im.core.config.jwt
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier

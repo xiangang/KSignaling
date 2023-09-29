@@ -1,7 +1,7 @@
 package com.nxg.im.core.plugins
 
 import com.nxg.im.core.api.*
-import com.nxg.im.core.jwt.JwtConfig
+import com.nxg.im.core.config.jwt.JwtConfig
 import com.nxg.im.core.repository.UserRepository
 import com.nxg.im.core.data.entity.*
 import com.nxg.im.core.utils.SnowflakeUtils
@@ -50,8 +50,8 @@ fun Application.configureHTTP() {
     }
 
     routing {
-        openAPI(path = "openapi", swaggerFile = "openapi/documentation.yaml")
-        swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
+//        openAPI(path = "openapi", swaggerFile = "openapi/documentation.yaml")
+//        swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
 
         authAPI()
 

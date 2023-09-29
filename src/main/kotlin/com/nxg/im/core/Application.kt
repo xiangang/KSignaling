@@ -2,7 +2,7 @@ package com.nxg.im.core
 
 import com.nxg.im.core.data.db.KSignalingDatabase
 import com.nxg.im.core.data.entity.*
-import com.nxg.im.core.data.redis.KSignalingRedisClient
+import com.nxg.im.core.middleware.redis.KSignalingRedisClient
 import com.nxg.im.core.plugins.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*

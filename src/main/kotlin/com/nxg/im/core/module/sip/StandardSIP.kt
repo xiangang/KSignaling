@@ -1,4 +1,4 @@
-package com.nxg.im.core.sip
+package com.nxg.im.core.module.sip
 
 
 import io.ktor.websocket.*

@@ -2,9 +2,9 @@ package com.nxg.im.core.api
 
 import com.nxg.im.core.plugins.LOGGER
 import com.nxg.im.core.plugins.getUserByAuthorization
-import com.nxg.im.core.signaling.Signaling
-import com.nxg.im.core.signaling.SignalingManager
-import com.nxg.im.core.signaling.SignalingSession
+import com.nxg.im.core.module.signaling.Signaling
+import com.nxg.im.core.module.signaling.SignalingManager
+import com.nxg.im.core.module.signaling.SignalingSession
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
@@ -32,9 +32,9 @@ fun Route.signalingWebSocket() {
                 try {
                     val signaling = Json.decodeFromString(Signaling.serializer(), text)
                     LOGGER.info("signalingWebSocket")
-                    for (signalingUser in signaling.toUsers) {
-                        LOGGER.info("signalingWebSocket ${user.username} send $text to ${signalingUser.username} ")
-                        SignalingManager.sendMsg2User(signalingUser.uuid, text)
+                    for (signalingUser in signaling.participants) {
+                        LOGGER.info("signalingWebSocket ${user.username} send $text to $signalingUser ")
+                        SignalingManager.sendMsg2User(signalingUser, text)
                     }
                 } catch (e: Exception) {
                     LOGGER.info("signalingWebSocket error ${e.message}")

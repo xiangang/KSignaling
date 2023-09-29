@@ -1,8 +1,8 @@
 package com.nxg.im.core.api
 
 import com.nxg.im.core.plugins.getUserByAuthorization
-import com.nxg.im.core.sip.CallSession
-import com.nxg.im.core.sip.SIPSessionManager
+import com.nxg.im.core.module.sip.CallSession
+import com.nxg.im.core.module.sip.SIPSessionManager
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*

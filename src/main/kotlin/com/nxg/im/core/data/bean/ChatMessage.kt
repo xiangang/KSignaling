@@ -4,7 +4,7 @@ import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 
 @Serializable
-sealed class IMMessage {
+sealed class ChatMessage {
     abstract val fromId: Long
     abstract val toId: Long
     abstract val chatType: Int
@@ -20,7 +20,7 @@ data class TextMessage(
     override val chatType: Int,
     override val content: TextMsgContent,
     override val timestamp: Long
-) : IMMessage()
+) : ChatMessage()
 
 @Serializable
 @SerialName("Image")
@@ -30,7 +30,7 @@ data class ImageMessage(
     override val chatType: Int,
     override val content: ImageMsgContent,
     override val timestamp: Long
-) : IMMessage()
+) : ChatMessage()
 
 @Serializable
 @SerialName("Audio")
@@ -40,7 +40,7 @@ data class AudioMessage(
     override val chatType: Int,
     override val content: AudioMsgContent,
     override val timestamp: Long
-) : IMMessage()
+) : ChatMessage()
 
 @Serializable
 @SerialName("Video")
@@ -50,7 +50,7 @@ data class VideoMessage(
     override val chatType: Int,
     override val content: VideoMsgContent,
     override val timestamp: Long
-) : IMMessage()
+) : ChatMessage()
 
 @Serializable
 @SerialName("File")
@@ -60,7 +60,7 @@ data class FileMessage(
     override val chatType: Int,
     override val content: FileMsgContent,
     override val timestamp: Long
-) : IMMessage()
+) : ChatMessage()
 
 @Serializable
 @SerialName("Location")
@@ -70,7 +70,7 @@ data class LocationMessage(
     override val chatType: Int,
     override val content: LocationMsgContent,
     override val timestamp: Long
-) : IMMessage()
+) : ChatMessage()
 
 @Serializable
 sealed class MessageContent
@@ -103,6 +103,6 @@ data class FileMsgContent(val url: String, val name: String, val size: Int) : Me
 data class LocationMsgContent(val latitude: Double, val longitude: Double, val address: String) :
     MessageContent()
 
-fun IMMessage.toJson(): String = Json.encodeToString(IMMessage.serializer(), this)
+fun ChatMessage.toJson(): String = Json.encodeToString(ChatMessage.serializer(), this)
 
-fun String.parseIMMessage(): IMMessage = Json.decodeFromString(IMMessage.serializer(), this)
+fun String.parseChatMessage(): ChatMessage = Json.decodeFromString(ChatMessage.serializer(), this)

@@ -7,7 +7,7 @@ import com.nxg.im.core.plugins.getUserByAuthorization
 import com.nxg.im.core.plugins.respondUnauthorized
 import com.nxg.im.core.repository.FriendRepository
 import com.nxg.im.core.repository.UserRepository
-import com.nxg.im.core.signaling.SignalingManager
+import com.nxg.im.core.module.signaling.SignalingManager
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
