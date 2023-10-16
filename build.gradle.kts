@@ -76,7 +76,7 @@ dependencies {
     implementation("io.lettuce:lettuce-core:6.2.4.RELEASE")
     testImplementation("io.ktor:ktor-server-tests-jvm:$ktor_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
-    implementation("com.nxg:combine-third-party:1.0.2")
+    implementation("io.minio:minio:8.5.6")
 }
 
 protobuf {

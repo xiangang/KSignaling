@@ -5,7 +5,6 @@ import com.nxg.im.core.data.bean.TextMessage
 import com.nxg.im.core.data.bean.TextMsgContent
 import com.nxg.im.core.data.bean.parseChatMessage
 import com.nxg.im.core.data.bean.toJson
-import com.nxg.im.core.module.signaling.SignalingUser
 import com.nxg.im.core.plugins.LOGGER
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -16,7 +15,6 @@ import com.nxg.im.core.module.sip.SipMessage
 import com.nxg.im.core.module.sip.SipMethod
 import com.nxg.im.core.module.sip.SipStatus
 import com.nxg.im.core.plugins.configureRouting
-import com.nxg.im.core.signaling.*
 
 class ApplicationTest {
     @Test
@@ -49,8 +47,6 @@ class ApplicationTest {
     fun testSignaling() = testApplication {
         LOGGER.info("testSignaling")
         LOGGER.info("")
-        val caller = listOf(SignalingUser(53069998221033472, "xiangang", "贤钢"))
-        val callee = listOf(SignalingUser(53069999762046976, "yanyan", "燕燕"))
     }
 
     @Test

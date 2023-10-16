@@ -68,6 +68,8 @@ fun Application.configureHTTP() {
 
             offlineMsgAPI()
 
+            uploadAPI()
+
         }
     }
 }
