@@ -28,7 +28,7 @@ data class ImageMessage(
     override val fromId: Long,
     override val toId: Long,
     override val chatType: Int,
-    override val content: ImageMsgContent,
+    override var content: ImageMsgContent,
     override val timestamp: Long
 ) : ChatMessage()
 
@@ -83,7 +83,9 @@ data class TextMsgContent(val text: String) : MessageContent()
 
 @Serializable
 @SerialName("Image")
-data class ImageMsgContent(val url: String, val width: Int, val height: Int) : MessageContent()
+data class ImageMsgContent(
+    val width: Int, val height: Int, var url: String = "",
+) : MessageContent()
 
 @Serializable
 @SerialName("Audio")
@@ -91,8 +93,13 @@ data class AudioMsgContent(val url: String, val duration: Int) : MessageContent(
 
 @Serializable
 @SerialName("Video")
-data class VideoMsgContent(val url: String, val duration: Int, val width: Int, val height: Int) :
-    MessageContent()
+data class VideoMsgContent(
+    val duration: Int,
+    val width: Int,
+    val height: Int,
+    var url: String = "",
+    var thumbnailUrl: String = "",
+) : MessageContent()
 
 @Serializable
 @SerialName("File")
@@ -101,12 +108,8 @@ data class FileMsgContent(val url: String, val name: String, val size: Int) : Me
 @Serializable
 @SerialName("Location")
 data class LocationMsgContent(
-    val latitude: Double,
-    val longitude: Double,
-    val name: String,
-    val address: String
-) :
-    MessageContent()
+    val latitude: Double, val longitude: Double, val name: String, val address: String
+) : MessageContent()
 
 fun ChatMessage.toJson(): String = Json.encodeToString(ChatMessage.serializer(), this)
 
