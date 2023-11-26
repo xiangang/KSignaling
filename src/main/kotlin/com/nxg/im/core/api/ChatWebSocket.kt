@@ -130,7 +130,7 @@ suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
         when (imCoreMessage.cmd) {
             "chat" -> {
                 val chatMessage: ChatMessage = bodyDataJson.parseChatMessage()
-                LOGGER.info("handleReceivedChatBytes ${chatMessage.fromId} send $bodyDataJson to ${chatMessage.toId}")
+                LOGGER.info("handleReceivedChatBytes send $bodyDataJson from ${chatMessage.fromId}  to ${chatMessage.toId}")
                 //消息去重，避免发送方重复发送
                 if (!MessageRepository.isChatMessageExist(imCoreMessage.seqId)) {
                     val body = imCoreMessage.bodyData.toByteArray()
@@ -150,7 +150,9 @@ suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
                             bodyData = ByteString.copyFrom(body)
                         }.build()
                         //如果发送失败或者没发送给发送方，则发送方认为失败
-                        IMSessionManager.sendMsg2User(chatMessage.fromId, imCoreMessageACK.toByteArray())
+                        if (IMSessionManager.sendMsg2User(chatMessage.fromId, imCoreMessageACK.toByteArray())) {
+                            LOGGER.info("handleReceivedChatBytes send to ${chatMessage.fromId} success")
+                        }
 
                         //发送notify(protobuf)给toId
                         val imCoreMessageNotify = IMCoreMessage.newBuilder().apply {
@@ -163,7 +165,7 @@ suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
                             bodyLen = body.size
                             bodyData = ByteString.copyFrom(body)
                         }.build()
-                        // 发送给接收方用户失败则使用redis存储离线消息(TODO，应该增加ACK确认机制)
+                        // 发送给接收方用户失败则使用redis存储离线消息(TODO，应该增加ACK确认机制，还没想好怎么处理)
                         if (IMSessionManager.sendMsg2User(chatMessage.toId, imCoreMessageNotify.toByteArray())) {
                             LOGGER.info("handleReceivedChatBytes： send to ${chatMessage.toId} success")
                             return
@@ -181,12 +183,31 @@ suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
                         redisCommands.expire(key, Duration.ofDays(7))//7天过期
                         LOGGER.info("handleReceivedChatBytes redis add key $key, score $score, number $number")
                     }
+                } else {
+                    LOGGER.error("handleReceivedChatBytes repeat send $bodyDataJson from ${chatMessage.fromId} to ${chatMessage.toId} ")
+                    //即便消息已经落库，仍应当回复给发送方，表明消息正确传递
+                    val body = imCoreMessage.bodyData.toByteArray()
+                    //发送acknowledge(protobuf)给fromId
+                    val imCoreMessageACK = IMCoreMessage.newBuilder().apply {
+                        version = imCoreMessage.version
+                        cmd = imCoreMessage.cmd
+                        subCmd = imCoreMessage.subCmd
+                        type = 1 // 1是acknowledge
+                        logId = imCoreMessage.logId
+                        seqId = imCoreMessage.seqId
+                        bodyLen = body.size
+                        bodyData = ByteString.copyFrom(body)
+                    }.build()
+                    //如果发送失败或者没发送给发送方，则发送方认为失败
+                    if (IMSessionManager.sendMsg2User(chatMessage.fromId, imCoreMessageACK.toByteArray())) {
+                        LOGGER.info("handleReceivedChatBytes send to ${chatMessage.fromId} success")
+                    }
                 }
             }
 
             "signaling" -> {
                 val signaling: Signaling = bodyDataJson.parseSignaling()
-                LOGGER.info("handleReceivedSignalingBytes ${signaling.fromId} send $bodyDataJson to ${signaling.participants}")
+                LOGGER.info("handleReceivedSignalingBytes send $bodyDataJson from ${signaling.fromId} sto ${signaling.participants}")
                 val bodyByteArray = imCoreMessage.bodyData.toByteArray()
                 //发送acknowledge(protobuf)给fromId
                 IMCoreMessage.newBuilder().apply {
@@ -201,6 +222,7 @@ suspend fun handleReceivedChatBytes(receivedBytes: ByteArray) {
                 }.build().also {
                     //如果发送失败或者没发送给发送方，则发送方认为失败
                     LOGGER.info("handleReceivedSignalingBytes ${signaling.fromId} ack to ${signaling.fromId}")
+                    LOGGER.info("handleReceivedSignalingBytes ack imCoreMessage $it")
                     IMSessionManager.sendMsg2User(signaling.fromId, it.toByteArray())
                 }
 
