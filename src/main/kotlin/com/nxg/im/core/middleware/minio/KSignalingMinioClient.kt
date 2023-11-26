@@ -53,7 +53,7 @@ object KSignalingMinioClient {
         LOGGER.info("$TAG partData name ${partData.name}")
         try {
             val ext = partData.originalFileName?.substringAfterLast(".")
-            val fileName = "${SnowflakeUtils.snowflake.nextId()}_${partData.name}.$ext"
+            val fileName = "${SnowflakeUtils.snowflake.nextId()}_${partData.originalFileName}"
             LOGGER.info("$TAG partData fileName $fileName")
             partData.streamProvider().use {
                 minioClient.putObject(

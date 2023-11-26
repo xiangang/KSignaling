@@ -10,7 +10,6 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.minio.*
 
 fun Route.uploadAPI() {
     //上传接口
@@ -66,12 +65,14 @@ fun Route.uploadAPI() {
         }
         uploadFileUrl?.let {
             LOGGER.info("uploadAPI success uploadFileUrl $it")
+            val shortUploadFileUrl = it.substringBefore("?", it)
+            LOGGER.info("uploadAPI success shortUploadFileUrl $shortUploadFileUrl")
             call.respond(
                 HttpStatusCode.OK,
                 mapOf(
                     "code" to HttpStatusCode.OK.value,
                     "message" to HttpStatusCode.OK.description,
-                    "data" to it
+                    "data" to shortUploadFileUrl
                 )
             )
             return@post
